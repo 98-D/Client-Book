@@ -1,0 +1,5 @@
+.wrap{display:grid;gap:12px}
+.top{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.h1{font-weight:700}
+.actions{display:flex;gap:8px}
+.grid{display:grid;gap:10px}
