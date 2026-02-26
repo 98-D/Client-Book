@@ -15,6 +15,8 @@ const DEV_URL_KEYS = [
     "VITE_DEV_SERVER_URL",
 ] as const;
 
+export type DevUrlKey = (typeof DEV_URL_KEYS)[number];
+
 export function getDevRendererUrl(): string {
     for (const k of DEV_URL_KEYS) {
         const v = process.env[k];

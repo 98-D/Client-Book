@@ -1,81 +1,111 @@
 // apps/desktop/src/window.ts
-import { BrowserWindow, nativeTheme, shell } from "electron";
+import { BrowserWindow, shell } from "electron";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { getDevRendererUrl, isDev } from "./env.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const TITLEBAR_HEIGHT = 34;
+
+function getDevRendererUrl(): string {
+    return (
+        process.env.CLIENTBOOK_DEV_URL ??
+        process.env.ELECTRON_RENDERER_URL ??
+        process.env.VITE_DEV_SERVER_URL ??
+        ""
+    );
+}
 
 function resolvePreloadPath(): string {
-    // With the fixed setup, preload is ESM TS compiled to dist/preload.js
-    const p = path.join(__dirname, "preload.js");
-    if (!existsSync(p)) {
-        // Helpful error that points to the real fix if build/copy is wrong
+    const here = path.dirname(fileURLToPath(import.meta.url));
+
+    // Prefer CommonJS preload that Electron will load synchronously and reliably.
+    const candidates = [
+        path.join(here, "preload.cjs"),
+        path.join(here, "preload.js"),
+        path.join(here, "preload.mjs"),
+
+        // fallback(s) if you ever decide to place preload in a folder
+        path.join(here, "preload", "index.cjs"),
+        path.join(here, "preload", "index.js"),
+        path.join(here, "preload", "index.mjs"),
+    ];
+
+    const found = candidates.find(existsSync);
+    if (!found) {
         throw new Error(
-            `[desktop] preload not found at ${p}. Did you rename src/preload.cts -> src/preload.ts and rebuild?`
+            ["Preload not found. Searched:", ...candidates.map((c) => `  - ${c}`)].join("\n")
         );
     }
-    return p;
+    return found;
+}
+
+function resolveProdIndexHtml(): string {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+
+    const candidates = [path.join(here, "renderer", "index.html"), path.join(here, "index.html")];
+    const found = candidates.find(existsSync);
+    if (!found) {
+        throw new Error(
+            [
+                "Renderer index.html not found. Searched:",
+                ...candidates.map((c) => `  - ${c}`),
+                "",
+                "Fix: ensure copy:renderer copies renderer dist into apps/desktop/dist/renderer/",
+            ].join("\n")
+        );
+    }
+    return found;
 }
 
 export async function createMainWindow(): Promise<BrowserWindow> {
+    const devUrl = getDevRendererUrl();
+    const isDev = devUrl.trim().length > 0;
+
+    const preloadPath = resolvePreloadPath();
+    // eslint-disable-next-line no-console
+    console.log("[desktop] preload:", preloadPath);
+
     const win = new BrowserWindow({
-        width: 1200,
-        height: 800,
-        show: false,
-        backgroundColor: nativeTheme.shouldUseDarkColors ? "#0b0b0b" : "#ffffff",
+        width: 650,
+        height: 550,
+        minWidth: 625,
+        minHeight: 400,
+        backgroundColor: "#0b0b0c",
+        frame: false,
+        titleBarStyle: "hidden",
+        titleBarOverlay: {
+            color: "#0b0b0c",
+            symbolColor: "#cfcfd2",
+            height: TITLEBAR_HEIGHT,
+        },
         webPreferences: {
+            preload: preloadPath,
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
             webSecurity: true,
-            preload: resolvePreloadPath(),
         },
     });
 
-    win.once("ready-to-show", () => win.show());
-
-    // Block new windows; open external links in browser
+    // Block unexpected navigations; open external links in OS browser.
     win.webContents.setWindowOpenHandler(({ url }) => {
         void shell.openExternal(url);
         return { action: "deny" };
     });
 
-    // Block unexpected navigations (only allow our app content)
     win.webContents.on("will-navigate", (e, url) => {
-        const devUrl = getDevRendererUrl();
-        const allowed =
-            (devUrl.length > 0 && url.startsWith(devUrl)) || url.startsWith("file://");
-
-        if (!allowed) {
-            e.preventDefault();
-            void shell.openExternal(url);
-        }
+        const okDev = isDev && url.startsWith(devUrl);
+        const okProd = !isDev && url.startsWith("file://");
+        if (okDev || okProd) return;
+        e.preventDefault();
+        void shell.openExternal(url);
     });
 
-    if (isDev()) {
-        const url = getDevRendererUrl();
-        await win.loadURL(url);
-        win.webContents.openDevTools({ mode: "detach" });
+    if (isDev) {
+        await win.loadURL(devUrl);
     } else {
-        // Expect renderer build output at apps/renderer/dist/index.html
-        const indexHtml = path.resolve(
-            process.cwd(),
-            "apps",
-            "renderer",
-            "dist",
-            "index.html"
-        );
-
-        if (!existsSync(indexHtml)) {
-            throw new Error(
-                `[desktop] renderer index.html not found at ${indexHtml}. Build the renderer first (apps/renderer) or adjust the path.`
-            );
-        }
-
-        await win.loadFile(indexHtml);
+        const indexHtml = resolveProdIndexHtml();
+        await win.loadURL(pathToFileURL(indexHtml).toString());
     }
 
     return win;

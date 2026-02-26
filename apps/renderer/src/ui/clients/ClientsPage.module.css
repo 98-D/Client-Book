@@ -1,0 +1,117 @@
+/* apps/renderer/src/ui/clients/ClientsPage.module.css
+   Updated:
+   - Columns now flex to fit window width (no cutoff on Actions)
+   - Cleaner header + tighter gaps
+   - Better overflow behavior + stable scrollbar
+   - Slightly nicer panel styling
+*/
+
+.root{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+}
+
+/* (top/draft styles left here in case you still use them elsewhere) */
+.top{
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+}
+
+.title{
+    font-size:13px;
+    font-weight:650;
+    letter-spacing:.2px;
+}
+
+.tools{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+/* Clients list */
+.listWrap{
+    flex:1;
+    min-height:0;
+    padding: 0 12px 12px;
+}
+
+.panel{
+    /* One source of truth for column sizing */
+    --colGap: 6px;
+    /* Company grows, numeric columns fixed-ish, Actions flexes (prevents cutoff) */
+    --cols: minmax(220px, 1.7fr) 96px 104px 110px minmax(140px, 1fr);
+
+    height:100%;
+    border:1px solid var(--line);
+    border-radius:var(--r);
+    background: linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,.012));
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+}
+
+.header{
+    display:grid;
+    grid-template-columns: var(--cols);
+    gap: var(--colGap);
+    padding: 10px 10px;
+    border-bottom:1px solid var(--line);
+    background: rgba(0,0,0,.10);
+    box-sizing:border-box;
+}
+
+.th{
+    min-width:0;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:.22px;
+    text-transform: uppercase;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.body{
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    scrollbar-gutter: stable;
+}
+
+.empty{
+    padding: 14px 12px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.note{
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--muted);
+}
+.noteErr{
+    color: rgba(255,120,120,.92);
+}
+
+/* Small window tuning */
+@media (max-width: 700px){
+    .panel{
+        --colGap: 6px;
+        --cols: minmax(190px, 1.55fr) 92px 100px 1fr minmax(120px, 0.9fr);
+    }
+}
+
+/* Even tighter (if you ever go smaller) */
+@media (max-width: 620px){
+    .panel{
+        --cols: minmax(170px, 1.45fr) 88px 96px 1fr minmax(110px, 0.85fr);
+    }
+}

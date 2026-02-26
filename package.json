@@ -2,20 +2,17 @@
   "name": "client-book",
   "private": true,
   "type": "module",
-
   "scripts": {
     "dev": "pnpm -C apps/renderer dev",
     "dev:desktop": "pnpm -C apps/desktop dev",
     "dev:all": "pnpm -r --parallel dev",
-
     "build": "pnpm -r build",
     "build:prod": "pnpm -C packages/contract build && pnpm -C packages/db build && pnpm -C apps/renderer build && pnpm -C apps/desktop build",
-
     "start": "pnpm -C apps/desktop start",
     "start:prod": "pnpm run build:prod && pnpm -C apps/desktop start"
   },
-
   "devDependencies": {
+    "electron-rebuild": "^3.2.9",
     "rimraf": "^6.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"

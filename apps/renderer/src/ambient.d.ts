@@ -1,4 +1,3 @@
-// apps/renderer/src/ambient.d.ts
 import type { ClientbookIpcApi } from "@clientbook/contract";
 
 declare global {

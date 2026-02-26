@@ -1,0 +1,37 @@
+.portal{ position:fixed; inset:0; z-index:50; }
+.backdrop{ position:absolute; inset:0; background:transparent; }
+
+.popover{
+    position:fixed;
+    width:360px;
+    border:1px solid var(--line2);
+    border-radius:var(--r);
+    background:var(--panel2);
+    box-shadow:var(--shadow);
+    padding:10px;
+}
+
+.card{ display:flex; flex-direction:column; gap:8px; }
+.title{ font-size:11px; color:var(--muted); letter-spacing:.2px; }
+
+.textarea{
+    width:100%;
+    min-height:110px;
+    resize:vertical;
+    padding:10px;
+    border-radius:var(--r2);
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.25);
+    color:var(--text);
+    font-size:12px;
+    outline:none;
+    line-height:1.35;
+}
+.textarea:focus{ border-color:rgba(255,255,255,.22); background:rgba(0,0,0,.35); }
+
+.footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:4px;
+}

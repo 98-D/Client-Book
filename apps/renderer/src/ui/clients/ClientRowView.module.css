@@ -1,0 +1,86 @@
+/* apps/renderer/src/ui/clients/ClientRowView.module.css
+   Updated to match ClientsPage.module.css column system:
+   - Uses the same --cols / --colGap variables defined on .panel
+   - Actions column flexes (prevents cutoff) but stays right-aligned
+   - Cleaner hover + editing states
+*/
+
+.row{
+    display:grid;
+    grid-template-columns: var(--cols, minmax(220px, 1.7fr) 96px 104px 110px minmax(140px, 1fr));
+    gap: var(--colGap, 6px);
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    align-items:center;
+    min-width:0;
+    box-sizing:border-box;
+}
+
+.row:last-child{ border-bottom:none; }
+
+.row:hover{
+    background: rgba(255,255,255,.02);
+}
+
+.editing{
+    background: rgba(255,255,255,.03);
+}
+
+.cell{ min-width:0; }
+
+.companyInput{
+    font-weight:650;
+    letter-spacing:.2px;
+}
+
+.actions{
+    display:flex;
+    justify-content:flex-end;
+    gap: 6px;
+    white-space: nowrap;
+    min-width:0;
+}
+
+/* --- Popover --- */
+.popoverCard{ display:flex; flex-direction:column; gap: 8px; }
+.popoverTitle{ font-size: 11px; color: var(--muted); letter-spacing:.2px; }
+.muted{ color: var(--muted); font-size: 11px; }
+
+.textarea{
+    width:100%;
+    min-height: 110px;
+    resize: vertical;
+    padding: 10px;
+    border-radius: var(--r2);
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(0,0,0,.25);
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    line-height: 1.35;
+}
+.textarea:focus{
+    border-color: rgba(255,255,255,.22);
+    background: rgba(0,0,0,.35);
+}
+
+.popoverFooter{
+    display:flex;
+    justify-content:flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* Keep row spacing slightly tighter on smaller widths (columns handled by --cols media rules on .panel) */
+@media (max-width: 700px){
+    .row{
+        padding: 6px 10px;
+    }
+}
+
+@media (max-width: 640px){
+    .row{
+        gap: 6px;
+        padding: 6px 8px;
+    }
+}

@@ -4,7 +4,7 @@
 // Responsibilities
 // - Single source of truth for DB writes (SQLite)
 // - Registers IPC handlers
-// - Creates the main BrowserWindow
+// - Creates the main BrowserWindow (frameless custom titlebar)
 // - Hardens navigation / lifetime behavior
 // - Centralizes startup error handling and logging
 //
@@ -30,7 +30,7 @@ function logErr(...args: unknown[]) {
     console.error("[desktop]", ...args);
 }
 
-function installProcessGuards() {
+function installProcessGuards(): void {
     process.on("uncaughtException", (err) => {
         logErr("uncaughtException:", err);
     });
@@ -41,66 +41,73 @@ function installProcessGuards() {
 }
 
 async function bootstrap(): Promise<void> {
-    // Ensure userData + roots exist
     const paths = getAppPaths();
     log("userData:", paths.userDataDir);
 
-    // Init DB (migrations happen here). This must happen in main process.
+    // DB init + migrations (main process only)
     getDb();
 
-    // IPC
+    // IPC handlers (main process only)
     registerIpcHandlers();
 
     // Window
     await createMainWindow();
 }
 
-app.on("window-all-closed", () => {
-    // macOS: keep app open until cmd+q
-    if (process.platform !== "darwin") app.quit();
-});
+function focusFirstWindow(): void {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win) return;
 
-app.on("activate", () => {
-    // macOS: recreate window when dock icon clicked and no windows exist
-    if (BrowserWindow.getAllWindows().length === 0) {
-        void createMainWindow();
-    }
-});
-
-app.on("before-quit", () => {
-    // Best-effort shutdown of worker
-    try {
-        shutdownWorker();
-    } catch {
-        // ignore
-    }
-});
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+}
 
 installProcessGuards();
 
-app
-    .whenReady()
-    .then(async () => {
-        // Optional: keep single-instance lock (prevents DB contention)
-        const gotLock = app.requestSingleInstanceLock();
-        if (!gotLock) {
-            app.quit();
-            return;
-        }
-
-        app.on("second-instance", () => {
-            // Focus existing window
-            const win = BrowserWindow.getAllWindows()[0];
-            if (win) {
-                if (win.isMinimized()) win.restore();
-                win.focus();
-            }
-        });
-
-        await bootstrap();
-        log("ready");
-    })
-    .catch((err) => {
-        logErr("bootstrap failed:", err);
-        app.quit();
+/**
+ * Single instance lock should be requested ASAP.
+ * This prevents two mains from racing and corrupting DB / worker state.
+ */
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+    app.quit();
+} else {
+    app.on("second-instance", () => {
+        focusFirstWindow();
     });
+
+    app.on("window-all-closed", () => {
+        // macOS: keep app open until cmd+q
+        if (process.platform !== "darwin") app.quit();
+    });
+
+    app.on("activate", () => {
+        // macOS: recreate window when dock icon clicked and no windows exist
+        if (BrowserWindow.getAllWindows().length === 0) {
+            void createMainWindow();
+        } else {
+            focusFirstWindow();
+        }
+    });
+
+    app.on("before-quit", () => {
+        // Best-effort shutdown of worker
+        try {
+            shutdownWorker();
+        } catch {
+            // ignore
+        }
+    });
+
+    app
+        .whenReady()
+        .then(async () => {
+            await bootstrap();
+            log("ready");
+        })
+        .catch((err) => {
+            logErr("bootstrap failed:", err);
+            app.quit();
+        });
+}

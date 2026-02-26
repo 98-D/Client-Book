@@ -1,15 +1,14 @@
 // apps/desktop/src/workerHost.ts
 //
-// ClientBook — Automation Worker Host (production-grade stub + real process wiring)
-//
-// Goals
+// ClientBook — Automation Worker Host (production)
 // - Main process owns DB writes; worker emits events/state only.
-// - Worker is an external Node/Electron child process (spawn) with a strict JSON-lines protocol.
+// - Worker is an external Node child process (spawn) with a strict NDJSON protocol.
 // - Safe in dev + packaged mode.
 // - Robust to crash, hang, partial output, and backpressure.
-// - Does NOT require the worker to exist yet: fails runs with actionable message.
+// - Worker may not exist yet: we fail runs with actionable message.
 //
 // Protocol (stdin/stdout as NDJSON; one JSON object per line)
+//
 //   Main -> Worker:
 //     { t:"hello", v:1, runId }
 //     { t:"run.start", v:1, runId, flowId, flowVersion, clientId, profileId, jarId, jarPath, inputJson }
@@ -17,15 +16,10 @@
 //     { t:"run.ping", v:1, runId }
 //
 //   Worker -> Main:
+//     { t:"ready", v:1 }
 //     { t:"event", v:1, runId, event:{ type, level?, message?, payload? } }
 //     { t:"state", v:1, runId, state, extra? }
-//     { t:"ready", v:1 }
 //     { t:"error", v:1, runId?, message, details? }
-//
-// Notes
-// - startFlowIfWorkerConfigured currently supports a single active run per app session.
-//   (Easy to expand to multiple runs by mapping runId -> session.)
-// - You can make the worker a long-lived singleton. That’s what we do here.
 //
 // ------------------------------------------------------------------------------------------
 
@@ -35,6 +29,15 @@ import { createInterface } from "node:readline";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { RunState as RunStateT } from "@clientbook/contract";
+
+const SINGLE_RUN_MODE = true as const;
+
+const READY_TIMEOUT_MS = 10_000;
+const STARTING_SPIN_MS = 50;
+const STARTING_TIMEOUT_MS = 10_000;
+
+const MAX_STD_LINE = 2_000; // cap noisy output
+const MAX_SEND_QUEUE = 500; // prevent unbounded memory if worker stalls
 
 export type WorkerEvent = {
     type: string;
@@ -110,21 +113,31 @@ type WorkerSession = {
 
 let child: ChildProcessWithoutNullStreams | null = null;
 let rl: ReturnType<typeof createInterface> | null = null;
+
 let ready = false;
 let starting = false;
 
-// single-run mapping (upgrade later if needed)
-let active: WorkerSession | null = null;
+// Multiple sessions map (SINGLE_RUN_MODE may still enforce max 1 active run)
+const sessions = new Map<string, WorkerSession>();
+
+// NDJSON send queue for backpressure handling
+let sendQueue: string[] = [];
+let sending = false;
 
 // ------------------------------------------------------------------------------------------
 // Worker entry resolution
 // ------------------------------------------------------------------------------------------
 
 function defaultWorkerEntryGuess(): string {
-    // Dev: repo root is process.cwd(). Packaged: put worker in resources or set env.
-    // We keep the "guess" dev-friendly.
-    const base = app.isPackaged ? process.resourcesPath : process.cwd();
-    return path.resolve(base, "packages", "worker", "dist", "main.js");
+    // Dev-friendly guess and a packaged-friendly guess.
+    if (app.isPackaged) {
+        // Expect worker shipped alongside app resources:
+        //   resources/worker/main.js   (recommended)
+        return path.resolve(process.resourcesPath, "worker", "main.js");
+    }
+
+    // Dev: repo root is process.cwd()
+    return path.resolve(process.cwd(), "packages", "worker", "dist", "main.js");
 }
 
 export function getWorkerEntryPath(): string | null {
@@ -134,8 +147,8 @@ export function getWorkerEntryPath(): string | null {
 }
 
 function getNodeBinary(): string {
-    // Electron main process: process.execPath points to electron.exe
-    // For a pure node worker, we prefer NODE_BINARY if set, else use "node" from PATH.
+    // Electron main: process.execPath points to electron.exe, not node.
+    // Prefer env override. Otherwise assume node is on PATH.
     const env = process.env.CLIENTBOOK_NODE_BINARY?.trim();
     if (env) return env;
     return "node";
@@ -153,17 +166,93 @@ export function getWorkerStatus(): WorkerStatus {
 }
 
 // ------------------------------------------------------------------------------------------
-// JSON-lines transport
+// Utilities
 // ------------------------------------------------------------------------------------------
 
-function writeMsg(msg: HostMsg) {
-    if (!child || child.killed) throw new Error("Worker process is not running");
-    child.stdin.write(JSON.stringify(msg) + "\n");
+function nowIso(): string {
+    return new Date().toISOString();
+}
+
+function isTerminalState(s: RunStateT): boolean {
+    // Keep permissive: your contract includes "failed" and likely "closed".
+    return s === ("failed" as RunStateT) || s === ("closed" as RunStateT);
+}
+
+function clip(s: string): string {
+    return s.length > MAX_STD_LINE ? s.slice(0, MAX_STD_LINE) + "…" : s;
+}
+
+function sleep(ms: number) {
+    return new Promise<void>((r) => setTimeout(r, ms));
 }
 
 function safeLogFallback(ev: WorkerEvent) {
     // eslint-disable-next-line no-console
     console.log(`[workerHost] ${ev.level ?? "info"} ${ev.type}: ${ev.message ?? ""}`);
+}
+
+// ------------------------------------------------------------------------------------------
+// NDJSON transport with backpressure
+// ------------------------------------------------------------------------------------------
+
+function enqueueSend(line: string) {
+    if (!child || child.killed) throw new Error("Worker process is not running");
+
+    if (sendQueue.length >= MAX_SEND_QUEUE) {
+        // drop oldest to avoid unbounded memory; keep last N
+        sendQueue = sendQueue.slice(Math.floor(MAX_SEND_QUEUE / 2));
+    }
+    sendQueue.push(line);
+    void flushSendQueue();
+}
+
+async function flushSendQueue(): Promise<void> {
+    if (sending) return;
+    if (!child || child.killed) return;
+
+    sending = true;
+    try {
+        while (sendQueue.length > 0) {
+            if (!child || child.killed) break;
+
+            const line = sendQueue.shift()!;
+            const ok = child.stdin.write(line);
+
+            if (!ok) {
+                await new Promise<void>((resolve) => {
+                    if (!child || child.killed) return resolve();
+                    child.stdin.once("drain", () => resolve());
+                });
+            }
+        }
+    } finally {
+        sending = false;
+    }
+}
+
+function writeMsg(msg: HostMsg) {
+    const line = JSON.stringify(msg) + "\n";
+    enqueueSend(line);
+}
+
+// ------------------------------------------------------------------------------------------
+// Worker message handling
+// ------------------------------------------------------------------------------------------
+
+function failAllSessions(reason: string, details?: unknown) {
+    for (const s of sessions.values()) {
+        s.onEvent({
+            type: "log",
+            level: "error",
+            message: `Worker stopped: ${reason}`,
+            payload: details ?? {},
+        });
+        s.onState("failed" as RunStateT, {
+            finished_at: nowIso(),
+            error_json: JSON.stringify({ message: `Worker stopped: ${reason}`, details: details ?? null }),
+        });
+    }
+    sessions.clear();
 }
 
 function handleWorkerMsg(msg: WorkerMsg) {
@@ -173,15 +262,19 @@ function handleWorkerMsg(msg: WorkerMsg) {
     }
 
     if (msg.t === "event") {
-        if (active && active.runId === msg.runId) active.onEvent(msg.event);
+        const s = sessions.get(msg.runId);
+        if (s) s.onEvent(msg.event);
         else safeLogFallback(msg.event);
         return;
     }
 
     if (msg.t === "state") {
-        if (active && active.runId === msg.runId) {
-            // extra is untyped; we pass it through as-is
-            active.onState(msg.state, msg.extra as any);
+        const s = sessions.get(msg.runId);
+        if (s) {
+            s.onState(msg.state, msg.extra as any);
+            if (isTerminalState(msg.state)) {
+                sessions.delete(msg.runId);
+            }
         }
         return;
     }
@@ -190,28 +283,33 @@ function handleWorkerMsg(msg: WorkerMsg) {
         const errMsg = msg.message || "Worker error";
         const runId = msg.runId;
 
-        if (runId && active && active.runId === runId) {
-            active.onEvent({
-                type: "log",
-                level: "error",
-                message: errMsg,
-                payload: msg.details ?? {},
-            });
-            active.onState("failed", {
-                finished_at: new Date().toISOString(),
-                error_json: JSON.stringify({ message: errMsg, details: msg.details ?? null }),
-            });
-            active = null;
-        } else {
-            // eslint-disable-next-line no-console
-            console.error("[workerHost] worker error:", errMsg, msg.details ?? "");
+        if (runId) {
+            const s = sessions.get(runId);
+            if (s) {
+                s.onEvent({
+                    type: "log",
+                    level: "error",
+                    message: errMsg,
+                    payload: msg.details ?? {},
+                });
+                s.onState("failed" as RunStateT, {
+                    finished_at: nowIso(),
+                    error_json: JSON.stringify({ message: errMsg, details: msg.details ?? null }),
+                });
+                sessions.delete(runId);
+                return;
+            }
         }
+
+        // eslint-disable-next-line no-console
+        console.error("[workerHost] worker error:", errMsg, msg.details ?? "");
     }
 }
 
 function startLineReader(proc: ChildProcessWithoutNullStreams) {
     rl?.close();
     rl = createInterface({ input: proc.stdout });
+
     rl.on("line", (line) => {
         const trimmed = line.trim();
         if (!trimmed) return;
@@ -221,34 +319,35 @@ function startLineReader(proc: ChildProcessWithoutNullStreams) {
             parsed = JSON.parse(trimmed);
         } catch {
             // non-JSON output; treat as a log line
-            const m = trimmed.length > 2000 ? trimmed.slice(0, 2000) + "…" : trimmed;
-            if (active) {
-                active.onEvent({ type: "log", level: "info", message: m });
-            } else {
+            const m = clip(trimmed);
+            const only = sessions.size === 1 ? Array.from(sessions.values())[0] : null;
+            if (only) only.onEvent({ type: "log", level: "info", message: m });
+            else {
                 // eslint-disable-next-line no-console
                 console.log("[workerHost] stdout:", m);
             }
             return;
         }
 
-        const msg = parsed as WorkerMsg;
-        handleWorkerMsg(msg);
+        handleWorkerMsg(parsed as WorkerMsg);
     });
 
     proc.stderr.on("data", (buf) => {
-        const text = buf.toString("utf8");
-        const m = text.length > 2000 ? text.slice(0, 2000) + "…" : text;
-
-        if (active) {
-            active.onEvent({ type: "log", level: "warn", message: m });
-        } else {
+        const m = clip(buf.toString("utf8"));
+        const only = sessions.size === 1 ? Array.from(sessions.values())[0] : null;
+        if (only) only.onEvent({ type: "log", level: "warn", message: m });
+        else {
             // eslint-disable-next-line no-console
             console.warn("[workerHost] stderr:", m);
         }
     });
 }
 
-function teardownWorker(reason: string) {
+// ------------------------------------------------------------------------------------------
+// Lifecycle
+// ------------------------------------------------------------------------------------------
+
+function teardownWorker(reason: string, details?: unknown) {
     ready = false;
     starting = false;
 
@@ -259,21 +358,13 @@ function teardownWorker(reason: string) {
     }
     rl = null;
 
+    if (sessions.size > 0) failAllSessions(reason, details);
+
     const proc = child;
     child = null;
 
-    if (active) {
-        active.onEvent({
-            type: "log",
-            level: "error",
-            message: `Worker stopped: ${reason}`,
-        });
-        active.onState("failed", {
-            finished_at: new Date().toISOString(),
-            error_json: JSON.stringify({ message: `Worker stopped: ${reason}` }),
-        });
-        active = null;
-    }
+    sendQueue = [];
+    sending = false;
 
     if (proc && !proc.killed) {
         try {
@@ -286,11 +377,11 @@ function teardownWorker(reason: string) {
 
 async function ensureWorkerRunning(): Promise<void> {
     if (child && !child.killed && ready) return;
+
     if (starting) {
-        // wait until ready or timeout
         const start = Date.now();
-        while (starting && Date.now() - start < 10_000) {
-            await new Promise((r) => setTimeout(r, 50));
+        while (starting && Date.now() - start < STARTING_TIMEOUT_MS) {
+            await sleep(STARTING_SPIN_MS);
             if (child && !child.killed && ready) return;
         }
         if (!ready) throw new Error("Worker did not become ready in time");
@@ -314,8 +405,10 @@ async function ensureWorkerRunning(): Promise<void> {
         CLIENTBOOK_APP_USER_DATA: app.getPath("userData"),
     };
 
+    const cwd = app.isPackaged ? process.resourcesPath : process.cwd();
+
     const proc = spawn(node, [entryPath], {
-        cwd: process.cwd(),
+        cwd,
         env,
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
@@ -329,13 +422,13 @@ async function ensureWorkerRunning(): Promise<void> {
     });
 
     proc.on("error", (err) => {
-        teardownWorker(`spawn error: ${err instanceof Error ? err.message : String(err)}`);
+        teardownWorker(`spawn error: ${err instanceof Error ? err.message : String(err)}`, err);
     });
 
-    // Wait for ready message (max 10s)
+    // Wait for ready message
     const start = Date.now();
-    while (!ready && Date.now() - start < 10_000) {
-        await new Promise((r) => setTimeout(r, 25));
+    while (!ready && Date.now() - start < READY_TIMEOUT_MS) {
+        await sleep(25);
         if (!child || child.killed) break;
     }
 
@@ -349,17 +442,6 @@ async function ensureWorkerRunning(): Promise<void> {
 // Public API
 // ------------------------------------------------------------------------------------------
 
-/**
- * Start a flow via the automation worker.
- *
- * Behavior:
- * - If worker isn't configured or doesn't exist: fail run with actionable message.
- * - If worker is running but busy with another run: fail fast (for now).
- * - Otherwise starts the run and streams events/states back through callbacks.
- *
- * NOTE: This host is designed so that Electron main remains authoritative:
- * - you still update DB state in ipc.ts via onEvent/onState hooks.
- */
 export async function startFlowIfWorkerConfigured(args: StartFlowArgs): Promise<void> {
     const entryPath = getWorkerEntryPath();
     const configured = !!entryPath && existsSync(entryPath);
@@ -373,44 +455,45 @@ export async function startFlowIfWorkerConfigured(args: StartFlowArgs): Promise<
             payload: { hint: "Set CLIENTBOOK_WORKER_ENTRY" },
         });
 
-        args.onState("failed", {
-            finished_at: new Date().toISOString(),
+        args.onState("failed" as RunStateT, {
+            finished_at: nowIso(),
             error_json: JSON.stringify({
-                message:
-                    "Worker not configured. Build packages/worker and/or set CLIENTBOOK_WORKER_ENTRY.",
+                message: "Worker not configured. Build packages/worker and/or set CLIENTBOOK_WORKER_ENTRY.",
             }),
         });
 
         return;
     }
 
-    if (active && active.runId !== args.runId) {
-        args.onEvent({
-            type: "log",
-            level: "error",
-            message:
-                "Worker is already running another job (single-run mode). Cancel the active run first.",
-            payload: { activeRunId: active.runId },
-        });
+    if (SINGLE_RUN_MODE) {
+        const other = Array.from(sessions.keys()).find((rid) => rid !== args.runId);
+        if (other) {
+            args.onEvent({
+                type: "log",
+                level: "error",
+                message: "Worker is already running another job (single-run mode). Cancel the active run first.",
+                payload: { activeRunId: other },
+            });
 
-        args.onState("failed", {
-            finished_at: new Date().toISOString(),
-            error_json: JSON.stringify({
-                message: "Worker busy (single-run mode).",
-                activeRunId: active.runId,
-            }),
-        });
+            args.onState("failed" as RunStateT, {
+                finished_at: nowIso(),
+                error_json: JSON.stringify({
+                    message: "Worker busy (single-run mode).",
+                    activeRunId: other,
+                }),
+            });
 
-        return;
+            return;
+        }
     }
 
     await ensureWorkerRunning();
 
-    active = {
+    sessions.set(args.runId, {
         runId: args.runId,
         onEvent: args.onEvent,
         onState: args.onState,
-    };
+    });
 
     // greet (optional; helps worker align logs with run)
     try {
@@ -419,7 +502,6 @@ export async function startFlowIfWorkerConfigured(args: StartFlowArgs): Promise<
         // ignore
     }
 
-    // start run
     writeMsg({
         t: "run.start",
         v: 1,
@@ -434,13 +516,10 @@ export async function startFlowIfWorkerConfigured(args: StartFlowArgs): Promise<
     });
 }
 
-/**
- * Optional helper to request cancellation of a run.
- * (Wire this from IPC later; worker must implement t:"run.cancel".)
- */
-export function cancelActiveRun(runId: string): void {
+export function cancelRun(runId: string): void {
     if (!child || child.killed) return;
-    if (!active || active.runId !== runId) return;
+    if (!sessions.has(runId)) return;
+
     try {
         writeMsg({ t: "run.cancel", v: 1, runId });
     } catch {
@@ -448,9 +527,17 @@ export function cancelActiveRun(runId: string): void {
     }
 }
 
-/**
- * Optional helper for diagnostics.
- */
+export function pingRun(runId: string): void {
+    if (!child || child.killed) return;
+    if (!sessions.has(runId)) return;
+
+    try {
+        writeMsg({ t: "run.ping", v: 1, runId });
+    } catch {
+        // ignore
+    }
+}
+
 export function shutdownWorker(): void {
     if (!child || child.killed) return;
     teardownWorker("shutdown requested");

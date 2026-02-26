@@ -1,4 +1,16 @@
 // apps/desktop/src/ipc.ts
+//
+// ClientBook — IPC registration (production)
+// - All renderer <-> main calls are routed through these handlers
+// - Zod validates inputs at the boundary
+// - Main process is the sole writer of SQLite (db lives here)
+// - Run events are broadcast to all windows
+// - Window controls for frameless custom titlebar
+//
+// Security notes
+// - Never return plaintext secrets (passwordPlain never leaves main)
+// - Keep handlers deterministic and fail-fast on invalid inputs
+
 import { BrowserWindow, ipcMain } from "electron";
 import { z } from "zod";
 import {
@@ -85,9 +97,13 @@ function safeJson(obj: unknown): string {
     return JSON.stringify(obj ?? {});
 }
 
+function nowIso(): string {
+    return new Date().toISOString();
+}
+
 // -------------------- Registration --------------------
 
-export function registerIpcHandlers() {
+export function registerIpcHandlers(): void {
     const db = getDb();
 
     // Clients
@@ -144,6 +160,8 @@ export function registerIpcHandlers() {
 
     ipcMain.handle(IPC.PROFILES_UPSERT, (_evt, input: unknown) => {
         const parsed = UpsertProfileInputZ.parse(input);
+
+        // IMPORTANT: never return or store plaintext password beyond this boundary
         const password_enc_b64 = encryptToB64(parsed.passwordPlain);
 
         const id = upsertCredentialProfile(db, {
@@ -217,6 +235,7 @@ export function registerIpcHandlers() {
             input_json: parsed.input_json,
         });
 
+        // initial log event
         appendRunEvent(db, runId, {
             type: "log",
             level: "info",
@@ -229,12 +248,12 @@ export function registerIpcHandlers() {
             runId,
             level: "info",
             message: `Run queued: ${parsed.flow_id}@${parsed.flow_version}`,
-            ts: new Date().toISOString(),
+            ts: nowIso(),
         });
 
         try {
             setRunState(db, runId, "running" satisfies RunStateT, {
-                started_at: new Date().toISOString(),
+                started_at: nowIso(),
                 jar_id: jarId,
             });
 
@@ -249,7 +268,7 @@ export function registerIpcHandlers() {
                 type: "state",
                 runId,
                 state: "running",
-                ts: new Date().toISOString(),
+                ts: nowIso(),
             });
 
             await startFlowIfWorkerConfigured({
@@ -274,7 +293,7 @@ export function registerIpcHandlers() {
                         level: ev.level,
                         message: ev.message,
                         payload: ev.payload,
-                        ts: new Date().toISOString(),
+                        ts: nowIso(),
                     });
                 },
                 onState: (state, extra) => {
@@ -289,14 +308,14 @@ export function registerIpcHandlers() {
                         type: "state",
                         runId,
                         state,
-                        ts: new Date().toISOString(),
+                        ts: nowIso(),
                     });
                 },
             });
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Failed to start run";
             setRunState(db, runId, "failed" satisfies RunStateT, {
-                finished_at: new Date().toISOString(),
+                finished_at: nowIso(),
                 error_json: safeJson({ message: msg }),
             });
             appendRunEvent(db, runId, {
@@ -310,7 +329,7 @@ export function registerIpcHandlers() {
                 runId,
                 level: "error",
                 message: msg,
-                ts: new Date().toISOString(),
+                ts: nowIso(),
             });
         }
 
@@ -331,7 +350,7 @@ export function registerIpcHandlers() {
             runId: rid,
             level: "warn",
             message: "Cancel requested",
-            ts: new Date().toISOString(),
+            ts: nowIso(),
         });
         return { ok: true as const };
     });
@@ -341,11 +360,11 @@ export function registerIpcHandlers() {
         const rows = db
             .prepare(
                 `
-                    SELECT *
-                    FROM automation_runs
-                    ORDER BY queued_at DESC
-                        LIMIT ?
-                `
+          SELECT *
+          FROM automation_runs
+          ORDER BY queued_at DESC
+          LIMIT ?
+        `
             )
             .all(limit);
         return rows;
@@ -356,16 +375,42 @@ export function registerIpcHandlers() {
         const rows = db
             .prepare(
                 `
-                    SELECT *
-                    FROM run_events
-                    WHERE run_id = ? AND seq > ?
-                    ORDER BY seq ASC
-                        LIMIT ?
-                `
+          SELECT *
+          FROM run_events
+          WHERE run_id = ? AND seq > ?
+          ORDER BY seq ASC
+          LIMIT ?
+        `
             )
             .all(runId, afterSeq, limit);
         return rows;
     });
 
     ipcMain.handle(IPC.WORKER_STATUS, () => getWorkerStatus());
+
+    // Window controls (frameless titlebar)
+    ipcMain.handle(IPC.WINDOW_MINIMIZE, (evt) => {
+        const win = BrowserWindow.fromWebContents(evt.sender);
+        win?.minimize();
+        return { ok: true as const };
+    });
+
+    ipcMain.handle(IPC.WINDOW_TOGGLE_MAXIMIZE, (evt) => {
+        const win = BrowserWindow.fromWebContents(evt.sender);
+        if (!win) return { maximized: false };
+        if (win.isMaximized()) win.unmaximize();
+        else win.maximize();
+        return { maximized: win.isMaximized() };
+    });
+
+    ipcMain.handle(IPC.WINDOW_IS_MAXIMIZED, (evt) => {
+        const win = BrowserWindow.fromWebContents(evt.sender);
+        return { maximized: win?.isMaximized() ?? false };
+    });
+
+    ipcMain.handle(IPC.WINDOW_CLOSE, (evt) => {
+        const win = BrowserWindow.fromWebContents(evt.sender);
+        win?.close();
+        return { ok: true as const };
+    });
 }

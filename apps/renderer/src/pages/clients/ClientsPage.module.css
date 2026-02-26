@@ -1,9 +1,0 @@
-.wrap{height:100%;padding:12px}
-.head{
-    display:grid;
-    grid-template-columns:1fr auto;
-    gap:10px;
-    align-items:center;
-}
-.title{font-weight:650}
-.tools{display:flex;gap:10px;align-items:center}

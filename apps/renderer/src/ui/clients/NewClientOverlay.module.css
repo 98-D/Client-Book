@@ -1,0 +1,192 @@
+/* apps/renderer/src/ui/clients/NewClientOverlay.module.css */
+
+.portal{
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    pointer-events: none;
+
+    /* Electron drag handling (VSCode may warn; safe at runtime) */
+    -webkit-app-region: no-drag;
+}
+
+.backdrop{
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    pointer-events: auto;
+}
+
+.card{
+    position: fixed;
+    width: 352px;
+    max-width: calc(100vw - 16px);
+
+    border-radius: calc(var(--r, 12px) + 2px);
+    overflow: hidden;
+    pointer-events: auto;
+
+    background:
+            radial-gradient(120% 120% at 20% 0%, rgba(255,255,255,.055), rgba(255,255,255,0) 55%),
+            linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)),
+            var(--panel2);
+
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow:
+            0 22px 70px rgba(0,0,0,.55),
+            0 2px 0 rgba(255,255,255,.06) inset;
+
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    padding: 10px 10px 9px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+}
+
+.title{
+    font-size: 12px;
+    font-weight: 680;
+    letter-spacing: .18px;
+    line-height: 1.1;
+}
+
+.body{
+    padding: 10px;
+}
+
+.grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.span2{ grid-column: 1 / -1; }
+
+.field{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label{
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .22px;
+    margin-left: 2px;
+}
+
+.notes{
+    width: 100%;
+    min-height: 74px;
+    resize: vertical;
+
+    padding: 9px 10px;
+    border-radius: var(--r2, 10px);
+    border: 1px solid rgba(255,255,255,.10);
+
+    background:
+            linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)),
+            rgba(0,0,0,.25);
+
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    line-height: 1.35;
+
+    transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.notes:focus{
+    border-color: rgba(255,255,255,.22);
+    background:
+            linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)),
+            rgba(0,0,0,.32);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.06);
+}
+
+.notes::placeholder{
+    color: rgba(255,255,255,.38);
+}
+
+.error{
+    margin-top: 8px;
+    padding: 9px 10px;
+
+    border-radius: var(--r2, 10px);
+    border: 1px solid rgba(255, 120, 120, .22);
+    background: linear-gradient(180deg, rgba(255,120,120,.10), rgba(255,120,120,.06));
+
+    font-size: 12px;
+    color: rgba(255, 210, 210, .95);
+}
+
+.footer{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    padding: 9px 10px 10px;
+    border-top: 1px solid rgba(255,255,255,.08);
+
+    background: linear-gradient(180deg, rgba(255,255,255,.01), rgba(255,255,255,.02));
+}
+
+.hint{
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .12px;
+}
+
+.footerButtons{
+    display: flex;
+    gap: 8px;
+}
+
+/* Light mode polish */
+:global(:root[data-theme="light"]) .card{
+    border: 1px solid rgba(0,0,0,.12);
+    box-shadow:
+            0 18px 55px rgba(0,0,0,.16),
+            0 2px 0 rgba(255,255,255,.55) inset;
+
+    background:
+            radial-gradient(120% 120% at 20% 0%, rgba(0,0,0,.035), rgba(0,0,0,0) 55%),
+            linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86)),
+            var(--panel2);
+}
+
+:global(:root[data-theme="light"]) .header{
+    border-bottom: 1px solid rgba(0,0,0,.08);
+    background: linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,0));
+}
+
+:global(:root[data-theme="light"]) .footer{
+    border-top: 1px solid rgba(0,0,0,.08);
+    background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.02));
+}
+
+:global(:root[data-theme="light"]) .notes{
+    border: 1px solid rgba(0,0,0,.12);
+    background:
+            linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,0)),
+            rgba(0,0,0,.03);
+}
+
+:global(:root[data-theme="light"]) .notes::placeholder{
+    color: rgba(0,0,0,.38);
+}
+
+@media (prefers-reduced-motion: reduce){
+    .notes{ transition: none; }
+}
