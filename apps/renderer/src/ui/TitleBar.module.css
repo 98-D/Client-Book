@@ -1,29 +1,55 @@
 /* apps/renderer/src/ui/TitleBar.module.css
-   Elite titlebar:
-   - glass chrome + subtle gradient
-   - brand pill + search pill
-   - icon buttons with micro-interactions
-   - mac-like traffic lights (close + minimize only)
+   Refined minimalism + subtle hover glow:
+   - no hover transforms (click only)
+   - consistent soft glow on hover for buttons
+   - cleaner background + borders
+   - search pill has focus-within glow
 */
 
 .root{
     height: var(--titlebar-h);
+
+    /* local theme vars */
+    --tb-border: rgba(255,255,255,.08);
+    --tb-border-2: rgba(255,255,255,.12);
+    --tb-surface: rgba(255,255,255,.03);
+    --tb-surface-2: rgba(255,255,255,.05);
+
+    --tb-glow-ring: rgba(255,255,255,.10);
+    --tb-glow-soft: rgba(140,200,255,.10);
+    --tb-glow-shadow: rgba(0,0,0,.22);
+
     background:
-            radial-gradient(120% 140% at 15% 0%, rgba(255,255,255,.06), rgba(255,255,255,0) 55%),
-            linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)),
+            linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012)),
             var(--panel);
-    border-bottom: 1px solid var(--line);
+
+    border-bottom: 1px solid var(--tb-border);
+}
+
+:global(:root[data-theme="light"]) .root{
+    --tb-border: rgba(0,0,0,.10);
+    --tb-border-2: rgba(0,0,0,.14);
+    --tb-surface: rgba(0,0,0,.02);
+    --tb-surface-2: rgba(0,0,0,.04);
+
+    --tb-glow-ring: rgba(0,0,0,.10);
+    --tb-glow-soft: rgba(0,0,0,.06);
+    --tb-glow-shadow: rgba(0,0,0,.10);
+
+    background:
+            linear-gradient(180deg, rgba(0,0,0,.018), rgba(0,0,0,0)),
+            var(--panel);
 }
 
 .dragArea{
     height: 100%;
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    padding: 0 10px;
     gap: 10px;
+    padding: 0 10px;
 }
 
+/* ----- Left ----- */
 .left{
     display:flex;
     align-items:center;
@@ -31,22 +57,10 @@
     min-width: 0;
 }
 
-.right{
-    display:flex;
-    align-items:center;
-    gap: 10px;
-}
-
-/* --- Brand pill --- */
-.brandPill{
+.brand{
     display:flex;
     align-items:center;
     gap: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.02);
-    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
     min-width: 0;
 }
 
@@ -55,9 +69,11 @@
     height: 8px;
     border-radius: 999px;
     background: rgba(255,255,255,.16);
-    box-shadow:
-            0 0 0 2px rgba(255,255,255,.05),
-            0 10px 20px rgba(0,0,0,.35);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.05);
+}
+:global(:root[data-theme="light"]) .brandDot{
+    background: rgba(0,0,0,.22);
+    box-shadow: 0 0 0 2px rgba(0,0,0,.06);
 }
 
 .brandText{
@@ -69,8 +85,8 @@
 
 .brandTitle{
     font-size: 12px;
-    font-weight: 700;
-    letter-spacing: .18px;
+    font-weight: 720;
+    letter-spacing: .16px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -84,30 +100,58 @@
     text-overflow: ellipsis;
 }
 
-/* --- Search pill --- */
+/* ----- Center ----- */
+.center{
+    flex: 1;
+    min-width: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+}
+
 .searchPill{
     display:flex;
     align-items:center;
     gap: 6px;
     height: 28px;
-    padding: 0 6px;
+    padding: 0 8px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.10);
-    background:
-            radial-gradient(120% 140% at 20% 0%, rgba(255,255,255,.05), rgba(255,255,255,0) 60%),
-            rgba(0,0,0,.20);
+    border: 1px solid var(--tb-border);
+    background: rgba(0,0,0,.18);
+    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
+    width: min(560px, 100%);
+    min-width: 240px;
+    max-width: 560px;
+    transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+:global(:root[data-theme="light"]) .searchPill{
+    background: rgba(0,0,0,.03);
+    box-shadow: 0 1px 0 rgba(255,255,255,.65) inset;
+}
+
+.searchPill:focus-within{
+    border-color: var(--tb-border-2);
     box-shadow:
-            0 1px 0 rgba(255,255,255,.06) inset,
-            0 12px 30px rgba(0,0,0,.20);
-    min-width: 320px;
-    max-width: 520px;
+            0 1px 0 rgba(255,255,255,.08) inset,
+            0 0 0 3px rgba(255,255,255,.06),
+            0 0 18px rgba(140,200,255,.08);
+}
+:global(:root[data-theme="light"]) .searchPill:focus-within{
+    box-shadow:
+            0 1px 0 rgba(255,255,255,.70) inset,
+            0 0 0 3px rgba(0,0,0,.06);
 }
 
 .searchIcon{
     font-size: 12px;
     color: rgba(255,255,255,.55);
-    margin-left: 4px;
+    margin-left: 2px;
     user-select:none;
+}
+:global(:root[data-theme="light"]) .searchIcon{
+    color: rgba(0,0,0,.55);
 }
 
 .searchInput{
@@ -120,17 +164,70 @@
     min-width: 0;
 }
 .searchInput::placeholder{
-    color: rgba(255,255,255,.38);
+    color: rgba(255,255,255,.36);
+}
+:global(:root[data-theme="light"]) .searchInput::placeholder{
+    color: rgba(0,0,0,.36);
 }
 
-.pillDivider{
-    width: 1px;
-    height: 16px;
-    background: rgba(255,255,255,.10);
-    margin: 0 2px;
+/* ----- Subtle-glow hover mixin (buttons) ----- */
+.searchBtn,
+.iconBtn,
+.primaryBtn,
+.ghostBtn{
+    transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, opacity 140ms ease;
 }
 
-.pillIconBtn{
+.searchBtn:hover,
+.iconBtn:hover,
+.primaryBtn:hover,
+.ghostBtn:hover{
+    border-color: var(--tb-border-2);
+    background: var(--tb-surface-2);
+    box-shadow:
+            0 0 0 3px var(--tb-glow-ring),
+            0 0 18px var(--tb-glow-soft),
+            0 10px 26px var(--tb-glow-shadow);
+    filter: saturate(1.02);
+}
+
+:global(:root[data-theme="light"]) .searchBtn:hover,
+:global(:root[data-theme="light"]) .iconBtn:hover,
+:global(:root[data-theme="light"]) .primaryBtn:hover,
+:global(:root[data-theme="light"]) .ghostBtn:hover{
+    box-shadow:
+            0 0 0 3px var(--tb-glow-ring),
+            0 10px 24px var(--tb-glow-shadow);
+    filter: none;
+}
+
+.searchBtn:active,
+.iconBtn:active,
+.primaryBtn:active,
+.ghostBtn:active{
+    transform: translateY(1px);
+}
+
+.searchBtn:focus-visible,
+.iconBtn:focus-visible,
+.primaryBtn:focus-visible,
+.ghostBtn:focus-visible{
+    outline:none;
+    box-shadow:
+            0 0 0 3px rgba(255,255,255,.10),
+            0 0 0 1px rgba(255,255,255,.10) inset;
+}
+:global(:root[data-theme="light"]) .searchBtn:focus-visible,
+:global(:root[data-theme="light"]) .iconBtn:focus-visible,
+:global(:root[data-theme="light"]) .primaryBtn:focus-visible,
+:global(:root[data-theme="light"]) .ghostBtn:focus-visible{
+    box-shadow:
+            0 0 0 3px rgba(0,0,0,.08),
+            0 0 0 1px rgba(0,0,0,.10) inset;
+}
+
+/* ----- Search action button ----- */
+.searchBtn{
     width: 28px;
     height: 28px;
     border-radius: 999px;
@@ -141,64 +238,61 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, filter 120ms ease;
+}
+:global(:root[data-theme="light"]) .searchBtn{
+    color: rgba(0,0,0,.72);
 }
 
-.pillIconBtn:hover{
-    background: rgba(255,255,255,.06);
-    border-color: rgba(255,255,255,.12);
-    transform: translateY(-1px);
-    filter: saturate(1.05);
+/* ----- Right ----- */
+.right{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    min-width: 0;
 }
 
-.pillIconBtn:active{ transform: translateY(0px); }
-
-.pillIconBtn:focus-visible{
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255,255,255,.10);
-}
-
-/* Theme glyph swaps via CSS (so no emoji mismatch in light mode) */
-.themeGlyph{
-    width: 12px;
-    height: 12px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.80);
-    box-shadow:
-            0 0 0 2px rgba(255,255,255,.10),
-            0 10px 20px rgba(0,0,0,.22);
-    position: relative;
-}
-.themeGlyph::after{
-    content:"";
-    position:absolute;
-    inset: -2px;
-    border-radius: 999px;
-    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), rgba(255,255,255,0) 55%);
-    opacity: .9;
-}
-:global(:root[data-theme="light"]) .themeGlyph{
-    background: rgba(0,0,0,.75);
-    box-shadow:
-            0 0 0 2px rgba(0,0,0,.10),
-            0 10px 20px rgba(0,0,0,.12);
-}
-
-/* --- Right actions --- */
 .actions{
     display:flex;
     align-items:center;
     gap: 8px;
 }
 
+/* shared small icon buttons (theme + refresh) */
+.iconBtn{
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-surface);
+    color: rgba(255,255,255,.85);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+:global(:root[data-theme="light"]) .iconBtn{
+    color: rgba(0,0,0,.72);
+}
+
+/* theme glyph (still minimal) */
+.themeGlyph{
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.82);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.10);
+}
+:global(:root[data-theme="light"]) .themeGlyph{
+    background: rgba(0,0,0,.78);
+    box-shadow: 0 0 0 2px rgba(0,0,0,.10);
+}
+
 .primaryBtn{
     height: 28px;
     padding: 0 12px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.12);
-    background:
-            radial-gradient(140% 160% at 20% 0%, rgba(255,255,255,.07), rgba(255,255,255,0) 55%),
-            rgba(255,255,255,.04);
+    border: 1px solid var(--tb-border);
+    background: var(--tb-surface);
     color: var(--text);
     font-size: 12px;
     font-weight: 650;
@@ -206,17 +300,7 @@
     display:flex;
     align-items:center;
     gap: 8px;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, filter 120ms ease;
 }
-
-.primaryBtn:hover{
-    background: rgba(255,255,255,.06);
-    border-color: rgba(255,255,255,.18);
-    transform: translateY(-1px);
-    filter: saturate(1.05);
-}
-
-.primaryBtn:active{ transform: translateY(0px); }
 
 .primaryBtnIcon{
     width: 16px;
@@ -225,29 +309,25 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--tb-border);
     font-weight: 800;
 }
 
 .ghostBtn{
     width: 30px;
     height: 28px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.10);
-    background: rgba(255,255,255,.03);
+    border-radius: 10px;
+    border: 1px solid var(--tb-border);
+    background: var(--tb-surface);
     color: rgba(255,255,255,.85);
     cursor: pointer;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
-.ghostBtn:hover{
-    background: rgba(255,255,255,.06);
-    border-color: rgba(255,255,255,.16);
-    transform: translateY(-1px);
+:global(:root[data-theme="light"]) .ghostBtn{
+    color: rgba(0,0,0,.72);
 }
-.ghostBtn:active{ transform: translateY(0px); }
 
-/* --- Traffic lights --- */
+/* ----- Window controls ----- */
 .winControls{
     display:flex;
     align-items:center;
@@ -260,143 +340,70 @@
     gap: 8px;
     padding: 6px 8px;
     border-radius: 999px;
-    background: rgba(255,255,255,.02);
-    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.015);
+    border: 1px solid var(--tb-border);
+}
+
+:global(:root[data-theme="light"]) .traffic{
+    background: rgba(0,0,0,.015);
 }
 
 .trafficBtn{
-    position: relative;
     width: 12px;
     height: 12px;
     border-radius: 999px;
     border: 1px solid rgba(0,0,0,.22);
     padding: 0;
     cursor: pointer;
+    box-shadow: 0 1px 0 rgba(255,255,255,.10) inset;
+    transition: filter 140ms ease, box-shadow 140ms ease, transform 80ms ease;
+}
+
+.trafficBtn:hover{
+    filter: brightness(1.04) saturate(1.03);
     box-shadow:
-            0 1px 0 rgba(255,255,255,.10) inset,
-            0 6px 18px rgba(0,0,0,.18);
-    transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+            0 1px 0 rgba(255,255,255,.12) inset,
+            0 0 0 3px rgba(255,255,255,.08);
 }
-.trafficBtn:active{ transform: translateY(1px); }
-
-.trafficClose{ background: #ff5f57; }
-.trafficMinimize{ background: #febc2e; }
-
-.traffic:hover .trafficBtn{
-    filter: saturate(1.06) brightness(1.03);
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.14) inset,
-            0 10px 26px rgba(0,0,0,.26);
-}
-
-.trafficBtn:hover{ transform: translateY(-1px); }
-
-.trafficBtn::before{
-    content: "";
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    font-size: 10px;
-    line-height: 1;
-    color: rgba(0,0,0,.55);
-    opacity: 0;
-    transform: scale(.92);
-    transition: opacity 140ms ease, transform 140ms ease;
-}
-.trafficClose::before{ content: "×"; }
-.trafficMinimize::before{ content: "–"; }
-.traffic:hover .trafficBtn::before{
-    opacity: .92;
-    transform: scale(1);
-}
-
-/* Light mode adjustments */
-:global(:root[data-theme="light"]) .root{
-    background:
-            radial-gradient(120% 140% at 15% 0%, rgba(0,0,0,.05), rgba(0,0,0,0) 55%),
-            linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,0)),
-            var(--panel);
-}
-
-:global(:root[data-theme="light"]) .brandPill{
-    border: 1px solid rgba(0,0,0,.10);
-    background: rgba(0,0,0,.02);
-}
-
-:global(:root[data-theme="light"]) .searchPill{
-    border: 1px solid rgba(0,0,0,.10);
-    background:
-            radial-gradient(120% 140% at 20% 0%, rgba(0,0,0,.04), rgba(0,0,0,0) 60%),
-            rgba(0,0,0,.03);
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.70) inset,
-            0 14px 34px rgba(0,0,0,.10);
-}
-
-:global(:root[data-theme="light"]) .searchIcon{
-    color: rgba(0,0,0,.55);
-}
-:global(:root[data-theme="light"]) .searchInput::placeholder{
-    color: rgba(0,0,0,.35);
-}
-
-:global(:root[data-theme="light"]) .pillDivider{
-    background: rgba(0,0,0,.10);
-}
-
-:global(:root[data-theme="light"]) .pillIconBtn{
-    color: rgba(0,0,0,.75);
-}
-:global(:root[data-theme="light"]) .pillIconBtn:hover{
-    background: rgba(0,0,0,.04);
-    border-color: rgba(0,0,0,.10);
-}
-
-:global(:root[data-theme="light"]) .primaryBtn{
-    border: 1px solid rgba(0,0,0,.10);
-    background:
-            radial-gradient(140% 160% at 20% 0%, rgba(0,0,0,.04), rgba(0,0,0,0) 55%),
-            rgba(0,0,0,.02);
-}
-:global(:root[data-theme="light"]) .primaryBtn:hover{
-    background: rgba(0,0,0,.04);
-    border-color: rgba(0,0,0,.12);
-}
-
-:global(:root[data-theme="light"]) .ghostBtn{
-    border: 1px solid rgba(0,0,0,.10);
-    background: rgba(0,0,0,.02);
-    color: rgba(0,0,0,.75);
-}
-:global(:root[data-theme="light"]) .ghostBtn:hover{
-    background: rgba(0,0,0,.04);
-    border-color: rgba(0,0,0,.12);
-}
-
-:global(:root[data-theme="light"]) .traffic{
-    background: rgba(0,0,0,.02);
-    border: 1px solid rgba(0,0,0,.10);
-}
-:global(:root[data-theme="light"]) .trafficBtn{
-    border: 1px solid rgba(0,0,0,.18);
+:global(:root[data-theme="light"]) .trafficBtn:hover{
     box-shadow:
             0 1px 0 rgba(255,255,255,.65) inset,
-            0 8px 18px rgba(0,0,0,.12);
+            0 0 0 3px rgba(0,0,0,.07);
 }
 
-/* Responsive: keep it tight */
+.trafficBtn:active{ transform: translateY(1px); }
+
+.trafficBtn:focus-visible{
+    outline:none;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.10);
+}
+:global(:root[data-theme="light"]) .trafficBtn:focus-visible{
+    box-shadow: 0 0 0 3px rgba(0,0,0,.08);
+}
+
+.trafficMinimize{ background: #febc2e; }
+.trafficMaximize{ background: #28c840; }
+.trafficClose{ background: #ff5f57; }
+
+.trafficMaximized{
+    box-shadow:
+            0 1px 0 rgba(255,255,255,.10) inset,
+            0 0 0 2px rgba(40,200,64,.18);
+}
+
+/* Responsive */
 @media (max-width: 760px){
-    .searchPill{ min-width: 240px; }
+    .searchPill{ min-width: 220px; }
 }
 
 /* Reduce motion */
 @media (prefers-reduced-motion: reduce){
-    .pillIconBtn,
+    .searchPill,
+    .searchBtn,
+    .iconBtn,
     .primaryBtn,
     .ghostBtn,
-    .trafficBtn,
-    .trafficBtn::before{
+    .trafficBtn{
         transition: none;
     }
 }

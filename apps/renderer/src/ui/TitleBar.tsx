@@ -1,11 +1,16 @@
 // apps/renderer/src/ui/TitleBar.tsx
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./TitleBar.module.css";
 import type { ThemeMode } from "./theme";
 
+type WindowResultOk = Readonly<{ ok: true }>;
+type WindowResultMax = Readonly<{ maximized: boolean }>;
+
 type WinApi = {
-    minimize: () => Promise<void>;
-    close: () => Promise<void>;
+    minimize: () => Promise<WindowResultOk>;
+    toggleMaximize: () => Promise<WindowResultMax>;
+    isMaximized: () => Promise<WindowResultMax>;
+    close: () => Promise<WindowResultOk>;
 };
 
 function getWinApi(): WinApi | null {
@@ -15,6 +20,7 @@ function getWinApi(): WinApi | null {
 type Props = {
     title: string;
     subtitle?: string;
+
     search: string;
     onSearchChange: (v: string) => void;
     onSearchCommit: () => void;
@@ -47,6 +53,8 @@ export default function TitleBar({
 
     const win = useMemo(() => getWinApi(), []);
     const hasWinControls = !!win;
+
+    const [maximized, setMaximized] = useState(false);
 
     const focusSearch = useCallback(() => inputRef.current?.focus(), []);
 
@@ -84,9 +92,36 @@ export default function TitleBar({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [handleKeyDown]);
 
+    // initial maximize state
+    useEffect(() => {
+        if (!hasWinControls) return;
+        let alive = true;
+        (async () => {
+            try {
+                const res = await win?.isMaximized();
+                if (!alive) return;
+                setMaximized(!!res?.maximized);
+            } catch {
+                // ignore
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [hasWinControls, win]);
+
     const onMinimize = useCallback(async () => {
         try {
             await win?.minimize();
+        } catch {
+            // ignore
+        }
+    }, [win]);
+
+    const onToggleMaximize = useCallback(async () => {
+        try {
+            const res = await win?.toggleMaximize();
+            if (typeof res?.maximized === "boolean") setMaximized(res.maximized);
         } catch {
             // ignore
         }
@@ -101,26 +136,39 @@ export default function TitleBar({
     }, [win]);
 
     const themeTitle = theme === "dark" ? "Light mode" : "Dark mode";
+    const maxTitle = maximized ? "Restore" : "Maximize";
 
     return (
         <header className={styles.root}>
             {/* Drag region: everything inside dragArea is draggable EXCEPT .noDrag children */}
-            <div className={`${styles.dragArea} drag`}>
+            <div className={`${styles.dragArea} drag`} onDoubleClick={() => void onToggleMaximize()}>
+                {/* LEFT: theme toggle first (far left), then brand (no pill) */}
                 <div className={styles.left}>
-                    {/* Elite brand pill */}
-                    <div className={styles.brandPill}>
+                    <button
+                        className={`${styles.iconBtn} noDrag`}
+                        onClick={onToggleTheme}
+                        title={themeTitle}
+                        type="button"
+                        aria-label={themeTitle}
+                    >
+                        <span className={styles.themeGlyph} aria-hidden="true" />
+                    </button>
+
+                    <div className={styles.brand}>
                         <div className={styles.brandDot} aria-hidden="true" />
                         <div className={styles.brandText}>
                             <div className={styles.brandTitle}>{title}</div>
                             {subtitle ? <div className={styles.brandSub}>{subtitle}</div> : null}
                         </div>
                     </div>
+                </div>
 
-                    {/* Search pill */}
+                {/* CENTER: search only (no refresh/theme inside) */}
+                <div className={styles.center}>
                     <div className={`${styles.searchPill} noDrag`}>
-            <span className={styles.searchIcon} aria-hidden="true">
-              ⌕
-            </span>
+                        <span className={styles.searchIcon} aria-hidden="true">
+                            ⌕
+                        </span>
                         <input
                             ref={inputRef}
                             className={styles.searchInput}
@@ -133,11 +181,8 @@ export default function TitleBar({
                             placeholder="Search (Company / BN / CAN)…"
                             spellCheck={false}
                         />
-
-                        <div className={styles.pillDivider} aria-hidden="true" />
-
                         <button
-                            className={styles.pillIconBtn}
+                            className={styles.searchBtn}
                             onClick={onSearchCommit}
                             title="Search (Enter)"
                             type="button"
@@ -145,31 +190,21 @@ export default function TitleBar({
                         >
                             ↵
                         </button>
-
-                        <button
-                            className={styles.pillIconBtn}
-                            onClick={onRefresh}
-                            title="Refresh (Ctrl/Cmd+R)"
-                            type="button"
-                            aria-label="Refresh"
-                        >
-                            ⟳
-                        </button>
-
-                        <button
-                            className={styles.pillIconBtn}
-                            onClick={onToggleTheme}
-                            title={themeTitle}
-                            type="button"
-                            aria-label={themeTitle}
-                        >
-                            <span className={styles.themeGlyph} aria-hidden="true" />
-                        </button>
                     </div>
+
+                    <button
+                        className={`${styles.iconBtn} noDrag`}
+                        onClick={onRefresh}
+                        title="Refresh (Ctrl/Cmd+R)"
+                        type="button"
+                        aria-label="Refresh"
+                    >
+                        ⟳
+                    </button>
                 </div>
 
+                {/* RIGHT: actions + window controls (close is furthest right) */}
                 <div className={`${styles.right} noDrag`}>
-                    {/* Primary actions */}
                     <div className={styles.actions}>
                         <button
                             ref={newBtnRef}
@@ -178,9 +213,6 @@ export default function TitleBar({
                             title="New client (Ctrl/Cmd+N)"
                             type="button"
                         >
-              <span className={styles.primaryBtnIcon} aria-hidden="true">
-                +
-              </span>
                             New
                         </button>
 
@@ -189,23 +221,32 @@ export default function TitleBar({
                         </button>
                     </div>
 
-                    {/* Traffic lights */}
                     {hasWinControls ? (
                         <div className={styles.winControls} aria-label="Window controls">
                             <div className={styles.traffic} aria-label="Window">
-                                <button
-                                    className={`${styles.trafficBtn} ${styles.trafficClose}`}
-                                    onClick={onClose}
-                                    type="button"
-                                    aria-label="Close"
-                                    title="Close"
-                                />
+                                {/* order: minimize, maximize (green), close (furthest right) */}
                                 <button
                                     className={`${styles.trafficBtn} ${styles.trafficMinimize}`}
                                     onClick={onMinimize}
                                     type="button"
                                     aria-label="Minimize"
                                     title="Minimize"
+                                />
+                                <button
+                                    className={`${styles.trafficBtn} ${styles.trafficMaximize} ${
+                                        maximized ? styles.trafficMaximized : ""
+                                    }`}
+                                    onClick={() => void onToggleMaximize()}
+                                    type="button"
+                                    aria-label={maxTitle}
+                                    title={maxTitle}
+                                />
+                                <button
+                                    className={`${styles.trafficBtn} ${styles.trafficClose}`}
+                                    onClick={onClose}
+                                    type="button"
+                                    aria-label="Close"
+                                    title="Close"
                                 />
                             </div>
                         </div>
