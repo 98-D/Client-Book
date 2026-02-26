@@ -1,26 +1,29 @@
 /* apps/renderer/src/ui/TitleBar.module.css
-   Refined minimalism + subtle hover glow:
-   - no hover transforms (click only)
-   - consistent soft glow on hover for buttons
-   - cleaner background + borders
-   - search pill has focus-within glow
+   Polished layout:
+   - Title is centered within the *available space* (between left controls and right cluster),
+     so it reads slightly left-of-window-center when the right side is heavier.
+   - Search is intentionally tighter.
+   - Wordmark feels more premium via typography + subtle highlight (not a cheap pill).
 */
 
 .root{
     height: var(--titlebar-h);
 
-    /* local theme vars */
     --tb-border: rgba(255,255,255,.08);
-    --tb-border-2: rgba(255,255,255,.12);
-    --tb-surface: rgba(255,255,255,.03);
-    --tb-surface-2: rgba(255,255,255,.05);
+    --tb-border-2: rgba(255,255,255,.14);
 
-    --tb-glow-ring: rgba(255,255,255,.10);
-    --tb-glow-soft: rgba(140,200,255,.10);
-    --tb-glow-shadow: rgba(0,0,0,.22);
+    --tb-ink: rgba(255,255,255,.90);
+    --tb-ink-dim: rgba(255,255,255,.58);
+
+    --tb-hover-bg: rgba(255,255,255,.05);
+    --tb-hover-border: rgba(255,255,255,.10);
+
+    --tb-ring: rgba(255,255,255,.10);
+    --tb-bloom: rgba(140,200,255,.08);
+    --tb-shadow: rgba(0,0,0,.20);
 
     background:
-            linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012)),
+            linear-gradient(180deg, rgba(255,255,255,.018), rgba(255,255,255,.008)),
             var(--panel);
 
     border-bottom: 1px solid var(--tb-border);
@@ -28,253 +31,209 @@
 
 :global(:root[data-theme="light"]) .root{
     --tb-border: rgba(0,0,0,.10);
-    --tb-border-2: rgba(0,0,0,.14);
-    --tb-surface: rgba(0,0,0,.02);
-    --tb-surface-2: rgba(0,0,0,.04);
+    --tb-border-2: rgba(0,0,0,.16);
 
-    --tb-glow-ring: rgba(0,0,0,.10);
-    --tb-glow-soft: rgba(0,0,0,.06);
-    --tb-glow-shadow: rgba(0,0,0,.10);
+    --tb-ink: rgba(0,0,0,.82);
+    --tb-ink-dim: rgba(0,0,0,.56);
+
+    --tb-hover-bg: rgba(0,0,0,.04);
+    --tb-hover-border: rgba(0,0,0,.10);
+
+    --tb-ring: rgba(0,0,0,.08);
+    --tb-bloom: rgba(0,0,0,.06);
+    --tb-shadow: rgba(0,0,0,.10);
 
     background:
-            linear-gradient(180deg, rgba(0,0,0,.018), rgba(0,0,0,0)),
+            linear-gradient(180deg, rgba(0,0,0,.012), rgba(0,0,0,0)),
             var(--panel);
 }
 
 .dragArea{
     height: 100%;
-    display:flex;
-    align-items:center;
-    gap: 10px;
     padding: 0 10px;
-}
 
-/* ----- Left ----- */
-.left{
-    display:flex;
+    display:grid;
+    grid-template-columns: auto 1fr auto; /* critical: center is between left & right */
     align-items:center;
-    gap: 10px;
-    min-width: 0;
+    column-gap: 12px;
+
+    -webkit-app-region: drag;
 }
 
-.brand{
+/* ----- LEFT / CENTER / RIGHT ----- */
+.left{
+    justify-self: start;
     display:flex;
     align-items:center;
     gap: 8px;
     min-width: 0;
 }
 
-.brandDot{
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.16);
-    box-shadow: 0 0 0 2px rgba(255,255,255,.05);
-}
-:global(:root[data-theme="light"]) .brandDot{
-    background: rgba(0,0,0,.22);
-    box-shadow: 0 0 0 2px rgba(0,0,0,.06);
-}
-
-.brandText{
+.center{
+    justify-self: stretch;     /* fill the “between” space */
     display:flex;
-    flex-direction:column;
+    justify-content:center;    /* center within that space */
     min-width: 0;
-    line-height: 1.05;
+    user-select: none;
 }
 
-.brandTitle{
-    font-size: 12px;
-    font-weight: 720;
-    letter-spacing: .16px;
+.right{
+    justify-self: end;
+    display:flex;
+    align-items:center;
+    gap: 8px;                  /* tighter so search + traffic read as one cluster */
+    min-width: 0;
+}
+
+/* ----- Premium title / wordmark ----- */
+.titleLine{
+    display:flex;
+    align-items:baseline;
+    justify-content:center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.titleText{
+    font-size: 12.5px;
+    font-weight: 760;
+    letter-spacing: .12px;
+    color: var(--tb-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+
+    /* “premium” rendering */
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+
+    /* very subtle lift */
+    text-shadow: 0 1px 12px rgba(0,0,0,.28);
 }
 
-.brandSub{
+:global(:root[data-theme="light"]) .titleText{
+    text-shadow: 0 1px 10px rgba(0,0,0,.08);
+}
+
+.titlePrimary{
+    opacity: .92;
+    font-weight: 730;
+}
+
+.titleAccent{
+    opacity: 1;
+    font-weight: 860;
+    margin-left: 0.5px;
+    color: var(--tb-ink);
+}
+
+/* Optional subtle highlight on the accent part (only when supported) */
+@supports (-webkit-background-clip: text) {
+    .titleAccent{
+        background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.72));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        text-shadow: none;
+    }
+    :global(:root[data-theme="light"]) .titleAccent{
+        background: linear-gradient(180deg, rgba(0,0,0,.86), rgba(0,0,0,.62));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+}
+
+.titleDot{
+    color: rgba(255,255,255,.22);
+}
+:global(:root[data-theme="light"]) .titleDot{
+    color: rgba(0,0,0,.22);
+}
+
+.subText{
     font-size: 11px;
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 240px;
 }
 
-/* ----- Center ----- */
-.center{
-    flex: 1;
-    min-width: 0;
+/* ----- shared interactive baseline (no “pill prison”) ----- */
+.iconBtn,
+.avatarBtn,
+.newBtn,
+.searchAction{
+    -webkit-app-region: no-drag;
+    height: 28px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--tb-ink);
+    cursor: pointer;
+
     display:flex;
     align-items:center;
     justify-content:center;
-    gap: 8px;
+
+    transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
-.searchPill{
-    display:flex;
-    align-items:center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 8px;
-    border-radius: 999px;
-    border: 1px solid var(--tb-border);
-    background: rgba(0,0,0,.18);
-    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
-    width: min(560px, 100%);
-    min-width: 240px;
-    max-width: 560px;
-    transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
-}
+.iconBtn{ width: 28px; }
+.iconBtn svg{ opacity: .92; }
 
-:global(:root[data-theme="light"]) .searchPill{
-    background: rgba(0,0,0,.03);
-    box-shadow: 0 1px 0 rgba(255,255,255,.65) inset;
-}
-
-.searchPill:focus-within{
-    border-color: var(--tb-border-2);
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.08) inset,
-            0 0 0 3px rgba(255,255,255,.06),
-            0 0 18px rgba(140,200,255,.08);
-}
-:global(:root[data-theme="light"]) .searchPill:focus-within{
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.70) inset,
-            0 0 0 3px rgba(0,0,0,.06);
-}
-
-.searchIcon{
-    font-size: 12px;
-    color: rgba(255,255,255,.55);
-    margin-left: 2px;
-    user-select:none;
-}
-:global(:root[data-theme="light"]) .searchIcon{
-    color: rgba(0,0,0,.55);
-}
-
-.searchInput{
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--text);
-    font-size: 12px;
-    width: 100%;
-    min-width: 0;
-}
-.searchInput::placeholder{
-    color: rgba(255,255,255,.36);
-}
-:global(:root[data-theme="light"]) .searchInput::placeholder{
-    color: rgba(0,0,0,.36);
-}
-
-/* ----- Subtle-glow hover mixin (buttons) ----- */
-.searchBtn,
-.iconBtn,
-.primaryBtn,
-.ghostBtn{
-    transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, opacity 140ms ease;
-}
-
-.searchBtn:hover,
 .iconBtn:hover,
-.primaryBtn:hover,
-.ghostBtn:hover{
-    border-color: var(--tb-border-2);
-    background: var(--tb-surface-2);
+.avatarBtn:hover,
+.newBtn:hover,
+.searchAction:hover{
+    background: var(--tb-hover-bg);
+    border-color: var(--tb-hover-border);
     box-shadow:
-            0 0 0 3px var(--tb-glow-ring),
-            0 0 18px var(--tb-glow-soft),
-            0 10px 26px var(--tb-glow-shadow);
+            0 0 0 2px var(--tb-ring),
+            0 0 14px var(--tb-bloom),
+            0 8px 18px var(--tb-shadow);
     filter: saturate(1.02);
 }
 
-:global(:root[data-theme="light"]) .searchBtn:hover,
 :global(:root[data-theme="light"]) .iconBtn:hover,
-:global(:root[data-theme="light"]) .primaryBtn:hover,
-:global(:root[data-theme="light"]) .ghostBtn:hover{
+:global(:root[data-theme="light"]) .avatarBtn:hover,
+:global(:root[data-theme="light"]) .newBtn:hover,
+:global(:root[data-theme="light"]) .searchAction:hover{
     box-shadow:
-            0 0 0 3px var(--tb-glow-ring),
-            0 10px 24px var(--tb-glow-shadow);
+            0 0 0 2px var(--tb-ring),
+            0 8px 16px var(--tb-shadow);
     filter: none;
 }
 
-.searchBtn:active,
 .iconBtn:active,
-.primaryBtn:active,
-.ghostBtn:active{
+.avatarBtn:active,
+.newBtn:active,
+.searchAction:active{
     transform: translateY(1px);
 }
 
-.searchBtn:focus-visible,
 .iconBtn:focus-visible,
-.primaryBtn:focus-visible,
-.ghostBtn:focus-visible{
+.avatarBtn:focus-visible,
+.newBtn:focus-visible,
+.searchAction:focus-visible{
     outline:none;
     box-shadow:
             0 0 0 3px rgba(255,255,255,.10),
             0 0 0 1px rgba(255,255,255,.10) inset;
 }
-:global(:root[data-theme="light"]) .searchBtn:focus-visible,
+
 :global(:root[data-theme="light"]) .iconBtn:focus-visible,
-:global(:root[data-theme="light"]) .primaryBtn:focus-visible,
-:global(:root[data-theme="light"]) .ghostBtn:focus-visible{
+:global(:root[data-theme="light"]) .avatarBtn:focus-visible,
+:global(:root[data-theme="light"]) .newBtn:focus-visible,
+:global(:root[data-theme="light"]) .searchAction:focus-visible{
     box-shadow:
             0 0 0 3px rgba(0,0,0,.08),
             0 0 0 1px rgba(0,0,0,.10) inset;
 }
 
-/* ----- Search action button ----- */
-.searchBtn{
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    background: transparent;
-    color: rgba(255,255,255,.80);
-    cursor: pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
-:global(:root[data-theme="light"]) .searchBtn{
-    color: rgba(0,0,0,.72);
-}
-
-/* ----- Right ----- */
-.right{
-    display:flex;
-    align-items:center;
-    gap: 10px;
-    min-width: 0;
-}
-
-.actions{
-    display:flex;
-    align-items:center;
-    gap: 8px;
-}
-
-/* shared small icon buttons (theme + refresh) */
-.iconBtn{
-    width: 28px;
-    height: 28px;
-    border-radius: 10px;
-    border: 1px solid var(--tb-border);
-    background: var(--tb-surface);
-    color: rgba(255,255,255,.85);
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
-:global(:root[data-theme="light"]) .iconBtn{
-    color: rgba(0,0,0,.72);
-}
-
-/* theme glyph (still minimal) */
+/* theme glyph */
 .themeGlyph{
     width: 12px;
     height: 12px;
@@ -287,48 +246,112 @@
     box-shadow: 0 0 0 2px rgba(0,0,0,.10);
 }
 
-.primaryBtn{
-    height: 28px;
-    padding: 0 12px;
+/* avatar */
+.avatarBtn{
+    width: 28px;
     border-radius: 999px;
-    border: 1px solid var(--tb-border);
-    background: var(--tb-surface);
-    color: var(--text);
+    color: rgba(255,255,255,.86);
+}
+:global(:root[data-theme="light"]) .avatarBtn{
+    color: rgba(0,0,0,.74);
+}
+
+/* new text button */
+.newBtn{
+    padding: 0 10px;
     font-size: 12px;
-    font-weight: 650;
-    cursor: pointer;
+    font-weight: 720;
+    letter-spacing: .10px;
+}
+
+/* subtle separator inside left controls */
+.sep{
+    width: 1px;
+    height: 16px;
+    background: rgba(255,255,255,.10);
+    margin: 0 2px;
+}
+:global(:root[data-theme="light"]) .sep{
+    background: rgba(0,0,0,.10);
+}
+
+/* ----- Search (tighter) ----- */
+.searchShell{
+    -webkit-app-region: no-drag;
+
     display:flex;
     align-items:center;
     gap: 8px;
-}
 
-.primaryBtnIcon{
-    width: 16px;
-    height: 16px;
-    border-radius: 6px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background: rgba(255,255,255,.05);
-    border: 1px solid var(--tb-border);
-    font-weight: 800;
-}
+    height: 28px;              /* align with buttons */
+    padding: 0 8px;
 
-.ghostBtn{
-    width: 30px;
-    height: 28px;
+    width: clamp(170px, 16vw, 240px);
+    min-width: 160px;
+    max-width: 240px;
+
     border-radius: 10px;
     border: 1px solid var(--tb-border);
-    background: var(--tb-surface);
-    color: rgba(255,255,255,.85);
-    cursor: pointer;
+    background: rgba(0,0,0,.12);
+    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
+
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
-:global(:root[data-theme="light"]) .ghostBtn{
-    color: rgba(0,0,0,.72);
+
+:global(:root[data-theme="light"]) .searchShell{
+    background: rgba(0,0,0,.03);
+    box-shadow: 0 1px 0 rgba(255,255,255,.65) inset;
+}
+
+.searchShell:focus-within{
+    border-color: var(--tb-border-2);
+    box-shadow:
+            0 1px 0 rgba(255,255,255,.08) inset,
+            0 0 0 3px rgba(255,255,255,.06),
+            0 0 14px rgba(140,200,255,.08);
+}
+
+:global(:root[data-theme="light"]) .searchShell:focus-within{
+    box-shadow:
+            0 1px 0 rgba(255,255,255,.70) inset,
+            0 0 0 3px rgba(0,0,0,.06);
+}
+
+.searchIcon{
+    color: var(--tb-ink-dim);
+    display:flex;
+    align-items:center;
+}
+
+.searchInput{
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--tb-ink);
+    font-size: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+.searchInput::placeholder{
+    color: rgba(255,255,255,.34);
+}
+:global(:root[data-theme="light"]) .searchInput::placeholder{
+    color: rgba(0,0,0,.34);
+}
+
+.searchAction{
+    width: 28px;
+    height: 28px;
+    color: rgba(255,255,255,.78);
+}
+:global(:root[data-theme="light"]) .searchAction{
+    color: rgba(0,0,0,.70);
 }
 
 /* ----- Window controls ----- */
 .winControls{
+    -webkit-app-region: no-drag;
     display:flex;
     align-items:center;
     justify-content:flex-end;
@@ -339,13 +362,13 @@
     align-items:center;
     gap: 8px;
     padding: 6px 8px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.015);
-    border: 1px solid var(--tb-border);
+    border-radius: 10px;
+    background: rgba(255,255,255,.010);
+    border: 1px solid rgba(255,255,255,.06);
 }
-
 :global(:root[data-theme="light"]) .traffic{
-    background: rgba(0,0,0,.015);
+    background: rgba(0,0,0,.010);
+    border: 1px solid rgba(0,0,0,.08);
 }
 
 .trafficBtn{
@@ -356,30 +379,22 @@
     padding: 0;
     cursor: pointer;
     box-shadow: 0 1px 0 rgba(255,255,255,.10) inset;
-    transition: filter 140ms ease, box-shadow 140ms ease, transform 80ms ease;
+    transition: filter 120ms ease, box-shadow 120ms ease, transform 80ms ease;
 }
 
 .trafficBtn:hover{
     filter: brightness(1.04) saturate(1.03);
     box-shadow:
             0 1px 0 rgba(255,255,255,.12) inset,
-            0 0 0 3px rgba(255,255,255,.08);
+            0 0 0 2px rgba(255,255,255,.08);
 }
 :global(:root[data-theme="light"]) .trafficBtn:hover{
     box-shadow:
             0 1px 0 rgba(255,255,255,.65) inset,
-            0 0 0 3px rgba(0,0,0,.07);
+            0 0 0 2px rgba(0,0,0,.07);
 }
 
 .trafficBtn:active{ transform: translateY(1px); }
-
-.trafficBtn:focus-visible{
-    outline:none;
-    box-shadow: 0 0 0 3px rgba(255,255,255,.10);
-}
-:global(:root[data-theme="light"]) .trafficBtn:focus-visible{
-    box-shadow: 0 0 0 3px rgba(0,0,0,.08);
-}
 
 .trafficMinimize{ background: #febc2e; }
 .trafficMaximize{ background: #28c840; }
@@ -391,18 +406,32 @@
             0 0 0 2px rgba(40,200,64,.18);
 }
 
-/* Responsive */
+/* ----- Responsive tuning ----- */
+@media (max-width: 980px){
+    .subText{ max-width: 200px; }
+    .searchShell{
+        width: clamp(160px, 18vw, 220px);
+        min-width: 150px;
+        max-width: 220px;
+    }
+}
+
 @media (max-width: 760px){
-    .searchPill{ min-width: 220px; }
+    .subText{ display:none; }
+    .searchShell{
+        width: 190px;
+        min-width: 170px;
+        max-width: 190px;
+    }
 }
 
 /* Reduce motion */
 @media (prefers-reduced-motion: reduce){
-    .searchPill,
-    .searchBtn,
     .iconBtn,
-    .primaryBtn,
-    .ghostBtn,
+    .avatarBtn,
+    .newBtn,
+    .searchAction,
+    .searchShell,
     .trafficBtn{
         transition: none;
     }

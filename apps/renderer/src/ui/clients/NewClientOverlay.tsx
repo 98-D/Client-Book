@@ -1,3 +1,4 @@
+// apps/renderer/src/ui/clients/NewClientOverlay.tsx
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ClientDraft, IsoDate } from "./types";
@@ -27,7 +28,7 @@ function emptyDraft(): ClientDraft {
         year_end_date: null,
         can: null,
         notes: null,
-        tags: [],
+        tags: [], // kept for shape-compat; not edited here
     };
 }
 
@@ -63,7 +64,6 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
         setMore(false);
     }, [open, initial]);
 
-    // keyboard shortcuts
     useEffect(() => {
         if (!open) return;
 
@@ -77,13 +77,13 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, onClose]);
 
-    // focus first input
     useEffect(() => {
         if (!open) return;
         const t = window.setTimeout(() => firstInputRef.current?.focus(), 0);
         return () => window.clearTimeout(t);
     }, [open]);
 
+    const companyOk = useMemo(() => draft.company_name.trim().length > 0, [draft.company_name]);
     const bnOk = useMemo(() => /^\d{9}$/.test(draft.bn.trim()), [draft.bn]);
 
     const yeStr = useMemo(() => String(draft.year_end_date ?? ""), [draft.year_end_date]);
@@ -100,10 +100,7 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
         return /^\d{9}$/.test(t);
     }, [canStr]);
 
-    const canSave = useMemo(() => {
-        const companyOk = draft.company_name.trim().length > 0;
-        return companyOk && bnOk && yeOk && canOk && !saving;
-    }, [draft.company_name, bnOk, yeOk, canOk, saving]);
+    const canSave = useMemo(() => companyOk && bnOk && yeOk && canOk && !saving, [companyOk, bnOk, yeOk, canOk, saving]);
 
     const recalc = useMemo(() => {
         return () => {
@@ -111,20 +108,20 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
             if (!anchor) return;
 
             const card = cardRef.current;
-            const pad = 8;
+            const pad = 9;
+            const gap = 7;
 
-            const cw = card?.getBoundingClientRect().width ?? 360;
-            const ch = card?.getBoundingClientRect().height ?? 220;
+            const rect = card?.getBoundingClientRect();
+            const cw = rect?.width ?? 340;
+            const ch = rect?.height ?? 210;
 
-            // default: bottom-start under button
             let left = anchor.left;
-            let top = anchor.bottom + 6;
+            let top = anchor.bottom + gap;
 
             left = clamp(left, pad, window.innerWidth - cw - pad);
 
-            // if would overflow bottom, flip above
             if (top + ch + pad > window.innerHeight) {
-                top = anchor.top - ch - 6;
+                top = anchor.top - ch - gap;
             }
             top = clamp(top, pad, window.innerHeight - ch - pad);
 
@@ -134,7 +131,6 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
 
     useLayoutEffect(() => {
         if (!open) return;
-        // ensure we measure after render
         requestAnimationFrame(recalc);
     }, [open, anchor, more, recalc]);
 
@@ -170,7 +166,7 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
             const notesT = String(draft.notes ?? "").trim();
             const notes = notesT.length ? notesT : null;
 
-            const tags = (draft.tags ?? []).map((t) => t.trim()).filter(Boolean);
+            const tags = draft.tags ?? []; // preserved, not edited
 
             await onSave({ ...draft, company_name, bn, year_end_date, can, notes, tags });
             onClose();
@@ -185,7 +181,6 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
 
     return createPortal(
         <div className={styles.portal} aria-hidden={!open}>
-            {/* click-away catcher (no dark overlay) */}
             <div
                 className={styles.backdrop}
                 onMouseDown={(e) => {
@@ -202,19 +197,25 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                 style={pos ? { top: pos.top, left: pos.left } : undefined}
             >
                 <div className={styles.header}>
-                    <div className={styles.title}>New client</div>
-                    <button className="btn sm ghost" onClick={onClose} type="button" aria-label="Close">
-                        ✕
+                    <div className={styles.headerLeft}>
+                        <div className={styles.kicker}>Create</div>
+                        <div className={styles.title}>New client</div>
+                    </div>
+
+                    <button className={styles.closeBtn} onClick={onClose} type="button" aria-label="Close" title="Close (Esc)">
+            <span className={styles.closeGlyph} aria-hidden="true">
+              ×
+            </span>
                     </button>
                 </div>
 
                 <div className={styles.body}>
                     <div className={styles.grid}>
-                        <label className={styles.field + " " + styles.span2}>
+                        <label className={`${styles.field} ${styles.span2}`}>
                             <div className={styles.label}>Company</div>
                             <input
                                 ref={firstInputRef}
-                                className={"inp" + (draft.company_name.trim().length ? "" : " invalid")}
+                                className={`${styles.inp} ${companyOk ? "" : styles.invalid}`}
                                 value={draft.company_name}
                                 onChange={(e) => setDraft((d) => ({ ...d, company_name: e.target.value }))}
                                 placeholder="Acme Inc."
@@ -225,7 +226,7 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                         <label className={styles.field}>
                             <div className={styles.label}>BN</div>
                             <input
-                                className={"inp mono" + (bnOk ? "" : " invalid")}
+                                className={`${styles.inp} ${styles.mono} ${bnOk ? "" : styles.invalid}`}
                                 value={draft.bn}
                                 onChange={(e) => setDraft((d) => ({ ...d, bn: cleanDigits9(e.target.value) }))}
                                 placeholder="123456789"
@@ -235,9 +236,9 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                         </label>
 
                         <label className={styles.field}>
-                            <div className={styles.label}>YE</div>
+                            <div className={styles.label}>Year end</div>
                             <input
-                                className={"inp mono" + (yeOk ? "" : " invalid")}
+                                className={`${styles.inp} ${styles.mono} ${yeOk ? "" : styles.invalid}`}
                                 value={yeStr}
                                 onChange={(e) => {
                                     const t = e.target.value.trim();
@@ -249,60 +250,47 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                         </label>
 
                         <label className={styles.field}>
-                            <div className={styles.label}>CAN</div>
+                            <div className={styles.label}>Access #</div>
                             <input
-                                className={"inp mono" + (canOk ? "" : " invalid")}
+                                className={`${styles.inp} ${styles.mono} ${canOk ? "" : styles.invalid}`}
                                 value={canStr}
                                 onChange={(e) => {
                                     const t = cleanDigits9(e.target.value);
                                     setDraft((d) => ({ ...d, can: t.length ? t : null }));
                                 }}
-                                placeholder="(optional)"
+                                placeholder="Optional"
                                 inputMode="numeric"
                                 spellCheck={false}
                             />
                         </label>
 
                         <div className={styles.field}>
-                            <div className={styles.label}>More</div>
-                            <button className="btn sm ghost" onClick={() => setMore((v) => !v)} type="button">
-                                {more ? "Hide" : "Notes + tags"}
+                            <div className={styles.label}>Notes</div>
+                            <button
+                                className={styles.disclosureBtn}
+                                onClick={() => setMore((v) => !v)}
+                                type="button"
+                                aria-expanded={more}
+                            >
+                                <span className={styles.disclosureText}>{more ? "Hide" : "Add notes"}</span>
+                                <span className={`${styles.chev} ${more ? styles.chevUp : ""}`} aria-hidden="true">
+                  ▾
+                </span>
                             </button>
                         </div>
 
                         {more ? (
-                            <>
-                                <label className={styles.field + " " + styles.span2}>
-                                    <div className={styles.label}>Tags</div>
-                                    <input
-                                        className="inp"
-                                        value={(draft.tags ?? []).join(", ")}
-                                        onChange={(e) =>
-                                            setDraft((d) => ({
-                                                ...d,
-                                                tags: e.target.value
-                                                    .split(",")
-                                                    .map((t) => t.trim())
-                                                    .filter(Boolean),
-                                            }))
-                                        }
-                                        placeholder="corp, gst, payroll"
-                                        spellCheck={false}
-                                    />
-                                </label>
-
-                                <label className={styles.field + " " + styles.span2}>
-                                    <div className={styles.label}>Notes</div>
-                                    <textarea
-                                        className={styles.notes}
-                                        value={String(draft.notes ?? "")}
-                                        onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-                                        placeholder="Optional…"
-                                        rows={3}
-                                        spellCheck={false}
-                                    />
-                                </label>
-                            </>
+                            <label className={`${styles.field} ${styles.span2}`}>
+                                <div className={styles.label}>Notes</div>
+                                <textarea
+                                    className={styles.notes}
+                                    value={String(draft.notes ?? "")}
+                                    onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                                    placeholder="Optional…"
+                                    rows={3}
+                                    spellCheck={false}
+                                />
+                            </label>
                         ) : null}
                     </div>
 
@@ -312,10 +300,10 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                 <div className={styles.footer}>
                     <div className={styles.hint}>Esc · Ctrl/⌘+Enter</div>
                     <div className={styles.footerBtns}>
-                        <button className="btn sm ghost" onClick={onClose} disabled={saving} type="button">
+                        <button className={styles.btnGhost} onClick={onClose} disabled={saving} type="button">
                             Cancel
                         </button>
-                        <button className="btn sm" onClick={handleSave} disabled={!canSave} type="button">
+                        <button className={styles.btnPrimary} onClick={handleSave} disabled={!canSave} type="button">
                             {saving ? "Saving…" : "Save"}
                         </button>
                     </div>
