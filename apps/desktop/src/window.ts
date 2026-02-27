@@ -62,6 +62,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
         height: 600,
         minWidth: 635,
         minHeight: 450,
+        icon: process.env.CLIENTBOOK_ICON_PATH || undefined,
 
         backgroundColor: "#0b0c0f",
         autoHideMenuBar: true,
