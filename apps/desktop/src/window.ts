@@ -59,9 +59,9 @@ export async function createMainWindow(): Promise<BrowserWindow> {
 
     const win = new BrowserWindow({
         width: 650,
-        height: 550,
-        minWidth: 625,
-        minHeight: 400,
+        height: 600,
+        minWidth: 635,
+        minHeight: 450,
 
         backgroundColor: "#0b0c0f",
         autoHideMenuBar: true,

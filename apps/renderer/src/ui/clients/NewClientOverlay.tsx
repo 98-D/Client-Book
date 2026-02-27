@@ -52,7 +52,6 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
 
     const cardRef = useRef<HTMLDivElement | null>(null);
     const firstInputRef = useRef<HTMLInputElement | null>(null);
-
     const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
     const ids = useMemo(() => {
@@ -123,7 +122,7 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
             const gap = 7;
 
             const rect = card?.getBoundingClientRect();
-            const cw = rect?.width ?? 320;
+            const cw = rect?.width ?? 324;
             const ch = rect?.height ?? 260;
 
             let left = anchor.left;
@@ -285,13 +284,13 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                             />
                         </div>
 
-                        <div className={styles.notesRow}>
-                            <label className={styles.notesLabel} htmlFor={ids.notes}>
+                        <div className={`${styles.row} ${styles.rowNotes}`}>
+                            <label className={styles.rowLabel} htmlFor={ids.notes}>
                                 Notes
                             </label>
                             <textarea
                                 id={ids.notes}
-                                className={styles.notes}
+                                className={styles.area}
                                 value={String(draft.notes ?? "")}
                                 onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
                                 placeholder="Optional…"
