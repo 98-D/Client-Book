@@ -1,4 +1,3 @@
-// apps/renderer/src/ui/clients/NewClientOverlay.tsx
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ClientDraft, IsoDate } from "./types";
@@ -28,7 +27,7 @@ function emptyDraft(): ClientDraft {
         year_end_date: null,
         can: null,
         notes: null,
-        tags: [], // kept for shape-compat; not edited here
+        tags: [],
     };
 }
 
@@ -50,18 +49,27 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
     const [draft, setDraft] = useState<ClientDraft>(() => initial ?? emptyDraft());
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
-    const [more, setMore] = useState(false);
 
     const cardRef = useRef<HTMLDivElement | null>(null);
     const firstInputRef = useRef<HTMLInputElement | null>(null);
 
     const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
+    const ids = useMemo(() => {
+        const s = Math.random().toString(36).slice(2, 8);
+        return {
+            name: `cb_name_${s}`,
+            ye: `cb_ye_${s}`,
+            bn: `cb_bn_${s}`,
+            can: `cb_can_${s}`,
+            notes: `cb_notes_${s}`,
+        };
+    }, []);
+
     useEffect(() => {
         if (!open) return;
         setDraft(initial ?? emptyDraft());
         setErr(null);
-        setMore(false);
     }, [open, initial]);
 
     useEffect(() => {
@@ -100,7 +108,10 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
         return /^\d{9}$/.test(t);
     }, [canStr]);
 
-    const canSave = useMemo(() => companyOk && bnOk && yeOk && canOk && !saving, [companyOk, bnOk, yeOk, canOk, saving]);
+    const canSave = useMemo(
+        () => companyOk && bnOk && yeOk && canOk && !saving,
+        [companyOk, bnOk, yeOk, canOk, saving]
+    );
 
     const recalc = useMemo(() => {
         return () => {
@@ -108,12 +119,12 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
             if (!anchor) return;
 
             const card = cardRef.current;
-            const pad = 9;
+            const pad = 8;
             const gap = 7;
 
             const rect = card?.getBoundingClientRect();
-            const cw = rect?.width ?? 340;
-            const ch = rect?.height ?? 210;
+            const cw = rect?.width ?? 320;
+            const ch = rect?.height ?? 260;
 
             let left = anchor.left;
             let top = anchor.bottom + gap;
@@ -132,21 +143,16 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
     useLayoutEffect(() => {
         if (!open) return;
         requestAnimationFrame(recalc);
-    }, [open, anchor, more, recalc]);
+    }, [open, anchor, recalc]);
 
-    // ✅ NEW: follow card size changes (e.g. textarea resize) so it never grows off-screen
     useEffect(() => {
         if (!open) return;
         const el = cardRef.current;
         if (!el) return;
-
         if (typeof ResizeObserver === "undefined") return;
 
-        const ro = new ResizeObserver(() => {
-            recalc();
-        });
+        const ro = new ResizeObserver(() => recalc());
         ro.observe(el);
-
         return () => ro.disconnect();
     }, [open, recalc]);
 
@@ -182,7 +188,7 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
             const notesT = String(draft.notes ?? "").trim();
             const notes = notesT.length ? notesT : null;
 
-            const tags = draft.tags ?? []; // preserved, not edited
+            const tags = draft.tags ?? [];
 
             await onSave({ ...draft, company_name, bn, year_end_date, can, notes, tags });
             onClose();
@@ -209,27 +215,17 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                 className={styles.card}
                 role="dialog"
                 aria-modal="false"
-                aria-label="New client"
+                aria-label="Create client"
                 style={pos ? { top: pos.top, left: pos.left } : undefined}
             >
-                <div className={styles.header}>
-                    <div className={styles.headerLeft}>
-                        <div className={styles.kicker}>Create</div>
-                        <div className={styles.title}>New client</div>
-                    </div>
-
-                    <button className={styles.closeBtn} onClick={onClose} type="button" aria-label="Close" title="Close (Esc)">
-            <span className={styles.closeGlyph} aria-hidden="true">
-              ×
-            </span>
-                    </button>
-                </div>
-
                 <div className={styles.body}>
-                    <div className={styles.grid}>
-                        <label className={`${styles.field} ${styles.span2}`}>
-                            <div className={styles.label}>Company</div>
+                    <div className={styles.rows}>
+                        <div className={styles.row}>
+                            <label className={styles.rowLabel} htmlFor={ids.name}>
+                                Name
+                            </label>
                             <input
+                                id={ids.name}
                                 ref={firstInputRef}
                                 className={`${styles.inp} ${companyOk ? "" : styles.invalid}`}
                                 value={draft.company_name}
@@ -237,23 +233,14 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                                 placeholder="Acme Inc."
                                 spellCheck={false}
                             />
-                        </label>
+                        </div>
 
-                        <label className={styles.field}>
-                            <div className={styles.label}>BN</div>
+                        <div className={styles.row}>
+                            <label className={styles.rowLabel} htmlFor={ids.ye}>
+                                YE
+                            </label>
                             <input
-                                className={`${styles.inp} ${styles.mono} ${bnOk ? "" : styles.invalid}`}
-                                value={draft.bn}
-                                onChange={(e) => setDraft((d) => ({ ...d, bn: cleanDigits9(e.target.value) }))}
-                                placeholder="123456789"
-                                inputMode="numeric"
-                                spellCheck={false}
-                            />
-                        </label>
-
-                        <label className={styles.field}>
-                            <div className={styles.label}>Year end</div>
-                            <input
+                                id={ids.ye}
                                 className={`${styles.inp} ${styles.mono} ${yeOk ? "" : styles.invalid}`}
                                 value={yeStr}
                                 onChange={(e) => {
@@ -263,11 +250,29 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                                 placeholder="YYYY-MM-DD"
                                 spellCheck={false}
                             />
-                        </label>
+                        </div>
 
-                        <label className={styles.field}>
-                            <div className={styles.label}>Access #</div>
+                        <div className={styles.row}>
+                            <label className={styles.rowLabel} htmlFor={ids.bn}>
+                                BN
+                            </label>
                             <input
+                                id={ids.bn}
+                                className={`${styles.inp} ${styles.mono} ${bnOk ? "" : styles.invalid}`}
+                                value={draft.bn}
+                                onChange={(e) => setDraft((d) => ({ ...d, bn: cleanDigits9(e.target.value) }))}
+                                placeholder="123456789"
+                                inputMode="numeric"
+                                spellCheck={false}
+                            />
+                        </div>
+
+                        <div className={styles.row}>
+                            <label className={styles.rowLabel} htmlFor={ids.can}>
+                                CAN
+                            </label>
+                            <input
+                                id={ids.can}
                                 className={`${styles.inp} ${styles.mono} ${canOk ? "" : styles.invalid}`}
                                 value={canStr}
                                 onChange={(e) => {
@@ -278,36 +283,22 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
                                 inputMode="numeric"
                                 spellCheck={false}
                             />
-                        </label>
-
-                        <div className={styles.field}>
-                            <div className={styles.label}>Notes</div>
-                            <button
-                                className={styles.disclosureBtn}
-                                onClick={() => setMore((v) => !v)}
-                                type="button"
-                                aria-expanded={more}
-                            >
-                                <span className={styles.disclosureText}>{more ? "Hide" : "Add notes"}</span>
-                                <span className={`${styles.chev} ${more ? styles.chevUp : ""}`} aria-hidden="true">
-                  ▾
-                </span>
-                            </button>
                         </div>
 
-                        {more ? (
-                            <label className={`${styles.field} ${styles.span2}`}>
-                                <div className={styles.label}>Notes</div>
-                                <textarea
-                                    className={styles.notes}
-                                    value={String(draft.notes ?? "")}
-                                    onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-                                    placeholder="Optional…"
-                                    rows={3}
-                                    spellCheck={false}
-                                />
+                        <div className={styles.notesRow}>
+                            <label className={styles.notesLabel} htmlFor={ids.notes}>
+                                Notes
                             </label>
-                        ) : null}
+                            <textarea
+                                id={ids.notes}
+                                className={styles.notes}
+                                value={String(draft.notes ?? "")}
+                                onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                                placeholder="Optional…"
+                                rows={2}
+                                spellCheck={false}
+                            />
+                        </div>
                     </div>
 
                     {err ? <div className={styles.error}>{err}</div> : null}
