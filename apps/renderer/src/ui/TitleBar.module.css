@@ -339,8 +339,8 @@
 .traffic {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
+    gap: 4px;
+    padding: 5px 5px;
     border-radius: 10px;
     background: transparent;
     border: 1px solid var(--tb-border);
