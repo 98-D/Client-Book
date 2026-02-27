@@ -1,5 +1,6 @@
 // apps/renderer/src/ui/TitleBar.tsx
-import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshCw, Search, UserRound } from "lucide-react";
 import styles from "./TitleBar.module.css";
 import type { ThemeMode } from "./theme";
 
@@ -20,18 +21,13 @@ function getWinApi(): WinApi | null {
 type Props = {
     title: string;
     subtitle?: string;
-
     search: string;
     onSearchChange: (v: string) => void;
     onSearchCommit: () => void;
-
     onNew: (anchor: DOMRect) => void;
     onRefresh: () => void;
-
     theme: ThemeMode;
     onToggleTheme: () => void;
-
-    // future: profile popover hook (anchor provided)
     onProfileClick?: (anchor: DOMRect) => void;
 };
 
@@ -57,78 +53,15 @@ function splitWordmark(s: string): { a: string; b?: string } {
     for (let i = 1; i < t.length; i++) {
         const prev = t[i - 1]!;
         const cur = t[i]!;
-        if (prev.toLowerCase() === prev && cur.toUpperCase() === cur && cur.toLowerCase() !== cur) {
+        if (
+            prev.toLowerCase() === prev &&
+            cur.toUpperCase() === cur &&
+            cur.toLowerCase() !== cur
+        ) {
             return { a: t.slice(0, i), b: t.slice(i) };
         }
     }
     return { a: t };
-}
-
-/* ---------- icons ---------- */
-
-function IconSearch(props: SVGProps<SVGSVGElement>) {
-    return (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true" {...props}>
-            <path
-                d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
-                stroke="currentColor"
-                strokeWidth="1.8"
-            />
-            <path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-    );
-}
-
-function IconEnter(props: SVGProps<SVGSVGElement>) {
-    return (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true" {...props}>
-            <path d="M10 7h7a3 3 0 0 1 3 3v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M10 17l-4-4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M6 13h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-    );
-}
-
-function IconRefresh(props: SVGProps<SVGSVGElement>) {
-    return (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true" {...props}>
-            <path
-                d="M20 12a8 8 0 1 1-2.34-5.66"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-            />
-            <path d="M20 4v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-    );
-}
-
-function IconMore(props: SVGProps<SVGSVGElement>) {
-    return (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" {...props}>
-            <circle cx="6" cy="12" r="1.7" />
-            <circle cx="12" cy="12" r="1.7" />
-            <circle cx="18" cy="12" r="1.7" />
-        </svg>
-    );
-}
-
-function IconUser(props: SVGProps<SVGSVGElement>) {
-    return (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true" {...props}>
-            <path
-                d="M12 12.2c2.1 0 3.8-1.7 3.8-3.8S14.1 4.6 12 4.6 8.2 6.3 8.2 8.4 9.9 12.2 12 12.2Z"
-                stroke="currentColor"
-                strokeWidth="1.8"
-            />
-            <path
-                d="M5.6 19.4c1.3-3 3.6-4.4 6.4-4.4s5.1 1.4 6.4 4.4"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-            />
-        </svg>
-    );
 }
 
 export default function TitleBar({
@@ -146,14 +79,23 @@ export default function TitleBar({
     const inputRef = useRef<HTMLInputElement | null>(null);
     const newBtnRef = useRef<HTMLButtonElement | null>(null);
     const profileBtnRef = useRef<HTMLButtonElement | null>(null);
+    const searchGroupRef = useRef<HTMLDivElement | null>(null);
+    const searchBtnRef = useRef<HTMLButtonElement | null>(null);
 
     // lock API once
     const winRef = useRef<WinApi | null>(null);
     if (winRef.current === null) winRef.current = getWinApi();
 
     const [maximized, setMaximized] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
 
-    const focusSearch = useCallback(() => inputRef.current?.focus(), []);
+    const wm = useMemo(() => splitWordmark(title), [title]);
+
+    const openSearch = useCallback(() => setSearchOpen(true), []);
+    const closeSearch = useCallback(() => setSearchOpen(false), []);
+    const focusSearch = useCallback(() => {
+        openSearch();
+    }, [openSearch]);
 
     const fireNew = useCallback(() => {
         onNew(anchorRect(newBtnRef.current));
@@ -164,7 +106,42 @@ export default function TitleBar({
         onProfileClick(anchorRect(profileBtnRef.current));
     }, [onProfileClick]);
 
-    const handleKeyDown = useCallback(
+    // focus input when opening
+    useEffect(() => {
+        if (!searchOpen) return;
+        const id = requestAnimationFrame(() => inputRef.current?.focus());
+        return () => cancelAnimationFrame(id);
+    }, [searchOpen]);
+
+    // click-outside closes search (group contains both icon + popover)
+    useEffect(() => {
+        if (!searchOpen) return;
+        const onDown = (e: MouseEvent) => {
+            const t = e.target as Node | null;
+            if (!t) return;
+            const group = searchGroupRef.current;
+            if (group && group.contains(t)) return;
+            closeSearch();
+        };
+        document.addEventListener("mousedown", onDown, true);
+        return () => document.removeEventListener("mousedown", onDown, true);
+    }, [searchOpen, closeSearch]);
+
+    // Esc closes search even if focus isn't in input
+    useEffect(() => {
+        if (!searchOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                closeSearch();
+                searchBtnRef.current?.focus();
+            }
+        };
+        window.addEventListener("keydown", onKey, true);
+        return () => window.removeEventListener("keydown", onKey, true);
+    }, [searchOpen, closeSearch]);
+
+    const handleGlobalHotkeys = useCallback(
         (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
             const mod = e.ctrlKey || e.metaKey;
@@ -189,9 +166,9 @@ export default function TitleBar({
     );
 
     useEffect(() => {
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleKeyDown]);
+        window.addEventListener("keydown", handleGlobalHotkeys);
+        return () => window.removeEventListener("keydown", handleGlobalHotkeys);
+    }, [handleGlobalHotkeys]);
 
     useEffect(() => {
         const win = winRef.current;
@@ -242,8 +219,6 @@ export default function TitleBar({
     const maxTitle = maximized ? "Restore" : "Maximize";
     const hasWinControls = !!winRef.current;
 
-    const wm = useMemo(() => splitWordmark(title), [title]);
-
     return (
         <header className={styles.root}>
             <div
@@ -253,7 +228,7 @@ export default function TitleBar({
                     void onToggleMaximize();
                 }}
             >
-                {/* LEFT: controls */}
+                {/* LEFT */}
                 <div className={`${styles.left} noDrag`} data-nodrag="1" aria-label="Controls">
                     <button
                         className={styles.iconBtn}
@@ -275,7 +250,7 @@ export default function TitleBar({
                         aria-label="Profile"
                         title="Profile"
                     >
-                        <IconUser />
+                        <UserRound className={styles.lucide} aria-hidden="true" />
                     </button>
 
                     <span className={styles.sep} aria-hidden="true" />
@@ -285,10 +260,10 @@ export default function TitleBar({
                         className={styles.newBtn}
                         data-nodrag="1"
                         onClick={fireNew}
-                        title="New client (Ctrl/Cmd+N)"
+                        title="Create client (Ctrl/Cmd+N)"
                         type="button"
                     >
-                        New
+                        Create
                     </button>
 
                     <button
@@ -299,69 +274,66 @@ export default function TitleBar({
                         type="button"
                         aria-label="Refresh"
                     >
-                        <IconRefresh />
-                    </button>
-
-                    <button className={styles.iconBtn} data-nodrag="1" onClick={() => {}} title="More" type="button" aria-label="More">
-                        <IconMore />
+                        <RefreshCw className={styles.lucide} aria-hidden="true" />
                     </button>
                 </div>
 
-                {/* CENTER: premium wordmark (centered within available space between left+right, not absolute window center) */}
+                {/* CENTER (true center, never pushed by right-side expansion) */}
                 <div className={styles.center} aria-label="App title">
-                    <div className={styles.titleLine} title={subtitle ? `${title} · ${subtitle}` : title}>
+                    <div className={styles.titleLine} title={subtitle ? `${title} — ${subtitle}` : title}>
             <span className={styles.titleText}>
               <span className={styles.titlePrimary}>{wm.a}</span>
                 {wm.b ? <span className={styles.titleAccent}>{wm.b}</span> : null}
             </span>
-
-                        {subtitle ? (
-                            <>
-                <span className={styles.titleDot} aria-hidden="true">
-                  ·
-                </span>
-                                <span className={styles.subText}>{subtitle}</span>
-                            </>
-                        ) : null}
+                        {subtitle ? <span className={styles.subText}>{subtitle}</span> : null}
                     </div>
                 </div>
 
-                {/* RIGHT: tighter search + window controls */}
+                {/* RIGHT */}
                 <div className={`${styles.right} noDrag`} data-nodrag="1" aria-label="Search and window controls">
-                    <div className={styles.searchShell} data-nodrag="1">
-            <span className={styles.searchIcon} aria-hidden="true">
-              <IconSearch />
-            </span>
-
-                        <input
-                            ref={inputRef}
-                            className={styles.searchInput}
-                            value={search}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") onSearchCommit();
-                                if (e.key === "Escape") (e.currentTarget as HTMLInputElement).blur();
-                            }}
-                            placeholder="Search…"
-                            spellCheck={false}
-                        />
-
+                    {/* Search group: icon always visible; popover overlays left of the icon (doesn't change layout width) */}
+                    <div ref={searchGroupRef} className={styles.searchGroup} data-nodrag="1">
                         <button
-                            className={styles.searchAction}
+                            ref={searchBtnRef}
+                            className={`${styles.iconBtn} ${searchOpen ? styles.searchToggleActive : ""}`}
                             data-nodrag="1"
-                            onClick={onSearchCommit}
-                            title="Search (Enter)"
+                            onClick={() => setSearchOpen((v) => !v)}
                             type="button"
-                            aria-label="Search"
+                            aria-label={searchOpen ? "Close search" : "Open search"}
+                            aria-expanded={searchOpen}
+                            title={searchOpen ? "Close search (Esc)" : "Search (Ctrl/Cmd+K)"}
                         >
-                            <IconEnter />
+                            <Search className={`${styles.lucide} ${styles.searchToggleIcon}`} aria-hidden="true" />
                         </button>
+
+                        <div
+                            className={`${styles.searchPopover} ${searchOpen ? styles.searchPopoverOpen : ""}`}
+                            aria-hidden={!searchOpen}
+                        >
+                            <div className={styles.searchShell}>
+                                <input
+                                    ref={inputRef}
+                                    className={styles.searchInput}
+                                    value={search}
+                                    onChange={(e) => onSearchChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") onSearchCommit();
+                                        if (e.key === "Escape") {
+                                            e.preventDefault();
+                                            closeSearch();
+                                            (e.currentTarget as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                    placeholder="Search…"
+                                    spellCheck={false}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {hasWinControls ? (
                         <div className={styles.winControls} aria-label="Window controls">
                             <div className={styles.traffic} aria-label="Window">
-                                {/* order: minimize, maximize, close (close furthest right) */}
                                 <button
                                     className={`${styles.trafficBtn} ${styles.trafficMinimize}`}
                                     onClick={onMinimize}

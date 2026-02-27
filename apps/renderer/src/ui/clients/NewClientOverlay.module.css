@@ -1,5 +1,7 @@
 /* apps/renderer/src/ui/clients/NewClientOverlay.module.css
-   Scaled-down version (same “expensive” feel, smaller everywhere)
+   Fix:
+   - card can never exceed viewport height
+   - body scrolls while footer stays visible (so Cancel/Save never disappear)
 */
 
 .portal{
@@ -22,9 +24,17 @@
     width: 344px;
     max-width: calc(100vw - 18px);
 
+    /* ✅ clamp to viewport so it can't grow beyond the app window */
+    max-height: calc(100vh - 18px);
+
     border-radius: 13px;
     overflow: hidden;
     pointer-events: auto;
+
+    /* ✅ make header/body/footer layout stable */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 
     background:
             radial-gradient(120% 120% at 22% 0%, rgba(255,255,255,.055), rgba(255,255,255,0) 60%),
@@ -52,9 +62,7 @@
     background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
 }
 
-.headerLeft{
-    min-width: 0;
-}
+.headerLeft{ min-width: 0; }
 
 .kicker{
     font-size: 9px;
@@ -110,9 +118,13 @@
     margin-top: -1px;
 }
 
-/* body */
+/* ✅ body becomes the scroll container */
 .body{
     padding: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
 }
 
 .grid{
@@ -167,9 +179,7 @@
             0 0 16px rgba(140,200,255,.065);
 }
 
-.inp::placeholder{
-    color: rgba(255,255,255,.34);
-}
+.inp::placeholder{ color: rgba(255,255,255,.34); }
 
 .mono{
     font-variant-numeric: tabular-nums;
@@ -177,14 +187,15 @@
     letter-spacing: .08px;
 }
 
-.invalid{
-    border-color: rgba(255, 120, 120, .28);
-}
+.invalid{ border-color: rgba(255, 120, 120, .28); }
 
 .notes{
     width: 100%;
     min-height: 70px;
     resize: vertical;
+
+    /* ✅ optional: keep resize sane inside the overlay */
+    max-height: 55vh;
 
     padding: 9px 9px;
     border-radius: 10px;
@@ -212,9 +223,7 @@
             0 0 16px rgba(140,200,255,.065);
 }
 
-.notes::placeholder{
-    color: rgba(255,255,255,.34);
-}
+.notes::placeholder{ color: rgba(255,255,255,.34); }
 
 /* disclosure */
 .disclosureBtn{
@@ -251,9 +260,7 @@
     opacity: .72;
     transition: transform 120ms ease;
 }
-.chevUp{
-    transform: rotate(180deg);
-}
+.chevUp{ transform: rotate(180deg); }
 
 /* error */
 .error{
@@ -278,6 +285,7 @@
     padding: 9px 10px 10px;
     border-top: 1px solid rgba(255,255,255,.08);
     background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.02));
+    flex: 0 0 auto;
 }
 
 .hint{
@@ -360,13 +368,9 @@
     background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.02));
 }
 
-:global(:root[data-theme="light"]) .kicker{
-    color: rgba(0,0,0,.46);
-}
+:global(:root[data-theme="light"]) .kicker{ color: rgba(0,0,0,.46); }
 
-:global(:root[data-theme="light"]) .closeBtn{
-    color: rgba(0,0,0,.68);
-}
+:global(:root[data-theme="light"]) .closeBtn{ color: rgba(0,0,0,.68); }
 
 :global(:root[data-theme="light"]) .closeBtn:hover{
     background: rgba(0,0,0,.04);

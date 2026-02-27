@@ -134,6 +134,22 @@ export function NewClientOverlay({ open, anchor, initial, onClose, onSave }: Pro
         requestAnimationFrame(recalc);
     }, [open, anchor, more, recalc]);
 
+    // ✅ NEW: follow card size changes (e.g. textarea resize) so it never grows off-screen
+    useEffect(() => {
+        if (!open) return;
+        const el = cardRef.current;
+        if (!el) return;
+
+        if (typeof ResizeObserver === "undefined") return;
+
+        const ro = new ResizeObserver(() => {
+            recalc();
+        });
+        ro.observe(el);
+
+        return () => ro.disconnect();
+    }, [open, recalc]);
+
     useEffect(() => {
         if (!open) return;
         if (!anchor) return;

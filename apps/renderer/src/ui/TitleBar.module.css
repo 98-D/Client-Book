@@ -1,171 +1,181 @@
-/* apps/renderer/src/ui/TitleBar.module.css
-   Polished layout:
-   - Title is centered within the *available space* (between left controls and right cluster),
-     so it reads slightly left-of-window-center when the right side is heavier.
-   - Search is intentionally tighter.
-   - Wordmark feels more premium via typography + subtle highlight (not a cheap pill).
-*/
 
-.root{
+    /* apps/renderer/src/ui/TitleBar.module.css
+     * Fixes:
+     * - Title looks clean/elite again (no weird fades, no gimmicks)
+     * - Search expansion accounts for magnifier button by becoming an overlay popover,
+     *   anchored to the icon and expanding LEFT without changing layout width.
+     * - Search width reduced so it won't invade the title.
+     */
+
+.root {
     height: var(--titlebar-h);
 
-    --tb-border: rgba(255,255,255,.08);
-    --tb-border-2: rgba(255,255,255,.14);
+    /* Dark (default) */
+    --tb-bg: var(--panel);
+    --tb-border: rgba(255, 255, 255, 0.08);
+    --tb-border-strong: rgba(255, 255, 255, 0.14);
+    --tb-ink: rgba(255, 255, 255, 0.92);
+    --tb-ink-dim: rgba(255, 255, 255, 0.56);
+    --tb-hover-bg: rgba(255, 255, 255, 0.04);
+    --tb-active-bg: rgba(255, 255, 255, 0.06);
+    --tb-focus-ring: rgba(255, 255, 255, 0.12);
 
-    --tb-ink: rgba(255,255,255,.90);
-    --tb-ink-dim: rgba(255,255,255,.58);
+    /* ✅ search sizing (smaller) */
+    --tb-search-w: clamp(130px, 10vw, 170px);
+    --tb-search-bg: rgba(0, 0, 0, 0.18);
+    --tb-search-border: rgba(255, 255, 255, 0.10);
+    --tb-search-border-focus: rgba(255, 255, 255, 0.18);
+    --tb-search-placeholder: rgba(255, 255, 255, 0.34);
 
-    --tb-hover-bg: rgba(255,255,255,.05);
-    --tb-hover-border: rgba(255,255,255,.10);
-
-    --tb-ring: rgba(255,255,255,.10);
-    --tb-bloom: rgba(140,200,255,.08);
-    --tb-shadow: rgba(0,0,0,.20);
-
-    background:
-            linear-gradient(180deg, rgba(255,255,255,.018), rgba(255,255,255,.008)),
-            var(--panel);
-
+    background: var(--tb-bg);
     border-bottom: 1px solid var(--tb-border);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
-:global(:root[data-theme="light"]) .root{
-    --tb-border: rgba(0,0,0,.10);
-    --tb-border-2: rgba(0,0,0,.16);
+:global(:root[data-theme="light"]) .root {
+    --tb-bg: var(--panel);
+    --tb-border: rgba(0, 0, 0, 0.10);
+    --tb-border-strong: rgba(0, 0, 0, 0.16);
+    --tb-ink: rgba(0, 0, 0, 0.84);
+    --tb-ink-dim: rgba(0, 0, 0, 0.52);
+    --tb-hover-bg: rgba(0, 0, 0, 0.035);
+    --tb-active-bg: rgba(0, 0, 0, 0.055);
+    --tb-focus-ring: rgba(0, 0, 0, 0.10);
+    --tb-search-bg: rgba(0, 0, 0, 0.03);
+    --tb-search-border: rgba(0, 0, 0, 0.12);
+    --tb-search-border-focus: rgba(0, 0, 0, 0.18);
+    --tb-search-placeholder: rgba(0, 0, 0, 0.34);
 
-    --tb-ink: rgba(0,0,0,.82);
-    --tb-ink-dim: rgba(0,0,0,.56);
-
-    --tb-hover-bg: rgba(0,0,0,.04);
-    --tb-hover-border: rgba(0,0,0,.10);
-
-    --tb-ring: rgba(0,0,0,.08);
-    --tb-bloom: rgba(0,0,0,.06);
-    --tb-shadow: rgba(0,0,0,.10);
-
-    background:
-            linear-gradient(180deg, rgba(0,0,0,.012), rgba(0,0,0,0)),
-            var(--panel);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
 }
 
-.dragArea{
+/* ----- Layout ----- */
+.dragArea {
     height: 100%;
     padding: 0 10px;
-
-    display:grid;
-    grid-template-columns: auto 1fr auto; /* critical: center is between left & right */
-    align-items:center;
-    column-gap: 12px;
-
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    column-gap: 10px;
+    position: relative;
     -webkit-app-region: drag;
 }
 
-/* ----- LEFT / CENTER / RIGHT ----- */
-.left{
+.left {
     justify-self: start;
-    display:flex;
-    align-items:center;
+    display: flex;
+    align-items: center;
     gap: 8px;
     min-width: 0;
+    position: relative;
+    z-index: 2;
 }
 
-.center{
-    justify-self: stretch;     /* fill the “between” space */
-    display:flex;
-    justify-content:center;    /* center within that space */
-    min-width: 0;
-    user-select: none;
-}
-
-.right{
+.right {
     justify-self: end;
-    display:flex;
-    align-items:center;
-    gap: 8px;                  /* tighter so search + traffic read as one cluster */
-    min-width: 0;
-}
-
-/* ----- Premium title / wordmark ----- */
-.titleLine{
-    display:flex;
-    align-items:baseline;
-    justify-content:center;
+    display: flex;
+    align-items: center;
     gap: 8px;
     min-width: 0;
+    position: relative;
+    z-index: 2;
 }
 
-.titleText{
-    font-size: 12.5px;
+/* True center; never pushed by right-side content */
+.center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    user-select: none;
+    max-width: 54%;
+}
+
+/* ----- Icons & Lucide ----- */
+.lucide {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2px;
+}
+
+.searchToggleIcon {
+    transition: transform 180ms ease, opacity 180ms ease;
+    opacity: 0.92;
+}
+
+/* ----- Title / Wordmark ----- */
+.titleLine {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.titleText {
+    font-size: 12.7px;
     font-weight: 760;
-    letter-spacing: .12px;
+    letter-spacing: 0.14px;
     color: var(--tb-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-
-    /* “premium” rendering */
     text-rendering: geometricPrecision;
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
-
-    /* very subtle lift */
-    text-shadow: 0 1px 12px rgba(0,0,0,.28);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.28);
 }
 
-:global(:root[data-theme="light"]) .titleText{
-    text-shadow: 0 1px 10px rgba(0,0,0,.08);
+:global(:root[data-theme="light"]) .titleText {
+    text-shadow: none;
 }
 
-.titlePrimary{
-    opacity: .92;
-    font-weight: 730;
+.titlePrimary {
+    font-weight: inherit;
+    opacity: 0.90;
 }
 
-.titleAccent{
+.titleAccent {
+    font-weight: inherit;
     opacity: 1;
-    font-weight: 860;
-    margin-left: 0.5px;
-    color: var(--tb-ink);
+    letter-spacing: 0.20px;
+    margin-left: 0.4px;
 }
 
-/* Optional subtle highlight on the accent part (only when supported) */
-@supports (-webkit-background-clip: text) {
-    .titleAccent{
-        background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.72));
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-        text-shadow: none;
-    }
-    :global(:root[data-theme="light"]) .titleAccent{
-        background: linear-gradient(180deg, rgba(0,0,0,.86), rgba(0,0,0,.62));
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-    }
-}
-
-.titleDot{
-    color: rgba(255,255,255,.22);
-}
-:global(:root[data-theme="light"]) .titleDot{
-    color: rgba(0,0,0,.22);
-}
-
-.subText{
+/* subtitle with hairline separator */
+.subText {
+    position: relative;
+    padding-left: 10px;
+    margin-left: 2px;
     font-size: 11px;
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 240px;
+    max-width: 200px;
 }
 
-/* ----- shared interactive baseline (no “pill prison”) ----- */
+.subText::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 12px;
+    background: var(--tb-border);
+    opacity: 0.9;
+}
+
+/* ----- Buttons & Controls ----- */
 .iconBtn,
 .avatarBtn,
-.newBtn,
-.searchAction{
+.newBtn {
     -webkit-app-region: no-drag;
     height: 28px;
     border-radius: 10px;
@@ -173,157 +183,137 @@
     background: transparent;
     color: var(--tb-ink);
     cursor: pointer;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-.iconBtn{ width: 28px; }
-.iconBtn svg{ opacity: .92; }
+.iconBtn {
+    width: 28px;
+}
 
 .iconBtn:hover,
 .avatarBtn:hover,
-.newBtn:hover,
-.searchAction:hover{
+.newBtn:hover {
     background: var(--tb-hover-bg);
-    border-color: var(--tb-hover-border);
-    box-shadow:
-            0 0 0 2px var(--tb-ring),
-            0 0 14px var(--tb-bloom),
-            0 8px 18px var(--tb-shadow);
-    filter: saturate(1.02);
-}
-
-:global(:root[data-theme="light"]) .iconBtn:hover,
-:global(:root[data-theme="light"]) .avatarBtn:hover,
-:global(:root[data-theme="light"]) .newBtn:hover,
-:global(:root[data-theme="light"]) .searchAction:hover{
-    box-shadow:
-            0 0 0 2px var(--tb-ring),
-            0 8px 16px var(--tb-shadow);
-    filter: none;
+    border-color: var(--tb-border);
 }
 
 .iconBtn:active,
 .avatarBtn:active,
-.newBtn:active,
-.searchAction:active{
-    transform: translateY(1px);
+.newBtn:active {
+    background: var(--tb-active-bg);
 }
 
 .iconBtn:focus-visible,
 .avatarBtn:focus-visible,
-.newBtn:focus-visible,
-.searchAction:focus-visible{
-    outline:none;
-    box-shadow:
-            0 0 0 3px rgba(255,255,255,.10),
-            0 0 0 1px rgba(255,255,255,.10) inset;
+.newBtn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--tb-focus-ring);
 }
 
-:global(:root[data-theme="light"]) .iconBtn:focus-visible,
-:global(:root[data-theme="light"]) .avatarBtn:focus-visible,
-:global(:root[data-theme="light"]) .newBtn:focus-visible,
-:global(:root[data-theme="light"]) .searchAction:focus-visible{
-    box-shadow:
-            0 0 0 3px rgba(0,0,0,.08),
-            0 0 0 1px rgba(0,0,0,.10) inset;
+/* active search toggle */
+.searchToggleActive {
+    background: var(--tb-hover-bg);
+    border-color: var(--tb-border);
+}
+
+.searchToggleActive .searchToggleIcon {
+    transform: scale(0.98);
+    opacity: 1;
 }
 
 /* theme glyph */
-.themeGlyph{
+.themeGlyph {
     width: 12px;
     height: 12px;
     border-radius: 999px;
-    background: rgba(255,255,255,.82);
-    box-shadow: 0 0 0 2px rgba(255,255,255,.10);
+    background: rgba(255, 255, 255, 0.78);
 }
-:global(:root[data-theme="light"]) .themeGlyph{
-    background: rgba(0,0,0,.78);
-    box-shadow: 0 0 0 2px rgba(0,0,0,.10);
+
+:global(:root[data-theme="light"]) .themeGlyph {
+    background: rgba(0, 0, 0, 0.74);
 }
 
 /* avatar */
-.avatarBtn{
+.avatarBtn {
     width: 28px;
     border-radius: 999px;
-    color: rgba(255,255,255,.86);
-}
-:global(:root[data-theme="light"]) .avatarBtn{
-    color: rgba(0,0,0,.74);
+    color: rgba(255, 255, 255, 0.84);
 }
 
-/* new text button */
-.newBtn{
+:global(:root[data-theme="light"]) .avatarBtn {
+    color: rgba(0, 0, 0, 0.72);
+}
+
+/* create button */
+.newBtn {
     padding: 0 10px;
     font-size: 12px;
-    font-weight: 720;
-    letter-spacing: .10px;
+    font-weight: 690;
+    letter-spacing: 0.10px;
 }
 
-/* subtle separator inside left controls */
-.sep{
+/* separator */
+.sep {
     width: 1px;
     height: 16px;
-    background: rgba(255,255,255,.10);
+    background: rgba(255, 255, 255, 0.10);
     margin: 0 2px;
 }
-:global(:root[data-theme="light"]) .sep{
-    background: rgba(0,0,0,.10);
+
+:global(:root[data-theme="light"]) .sep {
+    background: rgba(0, 0, 0, 0.10);
 }
 
-/* ----- Search (tighter) ----- */
-.searchShell{
-    -webkit-app-region: no-drag;
-
-    display:flex;
-    align-items:center;
-    gap: 8px;
-
-    height: 28px;              /* align with buttons */
-    padding: 0 8px;
-
-    width: clamp(170px, 16vw, 240px);
-    min-width: 160px;
-    max-width: 240px;
-
-    border-radius: 10px;
-    border: 1px solid var(--tb-border);
-    background: rgba(0,0,0,.12);
-    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
-
-    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+/* ----- Search (overlay popover anchored to magnifier) ----- */
+.searchGroup {
+    position: relative;
+    display: flex;
+    align-items: center;
 }
 
-:global(:root[data-theme="light"]) .searchShell{
-    background: rgba(0,0,0,.03);
-    box-shadow: 0 1px 0 rgba(255,255,255,.65) inset;
+.searchPopover {
+    position: absolute; /* sits to the LEFT of the icon; doesn't affect layout */
+    right: calc(28px + 8px);
+    top: 50%;
+    transform: translateY(-50%) translateX(6px) scale(0.985);
+    width: var(--tb-search-w);
+    opacity: 0;
+    pointer-events: none;
+    filter: blur(0px);
+    transition: opacity 140ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
-.searchShell:focus-within{
-    border-color: var(--tb-border-2);
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.08) inset,
-            0 0 0 3px rgba(255,255,255,.06),
-            0 0 14px rgba(140,200,255,.08);
+.searchPopoverOpen {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+    pointer-events: auto;
 }
 
-:global(:root[data-theme="light"]) .searchShell:focus-within{
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.70) inset,
-            0 0 0 3px rgba(0,0,0,.06);
+.searchShell {
+    width: 100%;
+    height: 28px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    border-radius: 12px;
+    border: 1px solid var(--tb-search-border);
+    background: var(--tb-search-bg);
+    transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
 
-.searchIcon{
-    color: var(--tb-ink-dim);
-    display:flex;
-    align-items:center;
+.searchShell:hover {
+    border-color: var(--tb-border-strong);
 }
 
-.searchInput{
+.searchShell:focus-within {
+    border-color: var(--tb-search-border-focus);
+    box-shadow: 0 0 0 3px var(--tb-focus-ring);
+}
+
+.searchInput {
     border: none;
     outline: none;
     background: transparent;
@@ -331,108 +321,104 @@
     font-size: 12px;
     width: 100%;
     min-width: 0;
+    line-height: 1;
 }
 
-.searchInput::placeholder{
-    color: rgba(255,255,255,.34);
-}
-:global(:root[data-theme="light"]) .searchInput::placeholder{
-    color: rgba(0,0,0,.34);
+.searchInput::placeholder {
+    color: var(--tb-search-placeholder);
 }
 
-.searchAction{
-    width: 28px;
-    height: 28px;
-    color: rgba(255,255,255,.78);
-}
-:global(:root[data-theme="light"]) .searchAction{
-    color: rgba(0,0,0,.70);
-}
-
-/* ----- Window controls ----- */
-.winControls{
+/* ----- Window controls (macOS-style traffic lights) ----- */
+.winControls {
     -webkit-app-region: no-drag;
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
-.traffic{
-    display:flex;
-    align-items:center;
+.traffic {
+    display: flex;
+    align-items: center;
     gap: 8px;
     padding: 6px 8px;
     border-radius: 10px;
-    background: rgba(255,255,255,.010);
-    border: 1px solid rgba(255,255,255,.06);
-}
-:global(:root[data-theme="light"]) .traffic{
-    background: rgba(0,0,0,.010);
-    border: 1px solid rgba(0,0,0,.08);
+    background: transparent;
+    border: 1px solid var(--tb-border);
 }
 
-.trafficBtn{
+.trafficBtn {
     width: 12px;
     height: 12px;
     border-radius: 999px;
-    border: 1px solid rgba(0,0,0,.22);
+    border: 1px solid rgba(0, 0, 0, 0.22);
     padding: 0;
     cursor: pointer;
-    box-shadow: 0 1px 0 rgba(255,255,255,.10) inset;
-    transition: filter 120ms ease, box-shadow 120ms ease, transform 80ms ease;
+    transition: filter 120ms ease, transform 80ms ease, box-shadow 120ms ease;
 }
 
-.trafficBtn:hover{
-    filter: brightness(1.04) saturate(1.03);
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.12) inset,
-            0 0 0 2px rgba(255,255,255,.08);
-}
-:global(:root[data-theme="light"]) .trafficBtn:hover{
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.65) inset,
-            0 0 0 2px rgba(0,0,0,.07);
+.trafficBtn:hover {
+    filter: brightness(1.03);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
 
-.trafficBtn:active{ transform: translateY(1px); }
-
-.trafficMinimize{ background: #febc2e; }
-.trafficMaximize{ background: #28c840; }
-.trafficClose{ background: #ff5f57; }
-
-.trafficMaximized{
-    box-shadow:
-            0 1px 0 rgba(255,255,255,.10) inset,
-            0 0 0 2px rgba(40,200,64,.18);
+:global(:root[data-theme="light"]) .trafficBtn:hover {
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.07);
 }
 
-/* ----- Responsive tuning ----- */
-@media (max-width: 980px){
-    .subText{ max-width: 200px; }
-    .searchShell{
-        width: clamp(160px, 18vw, 220px);
-        min-width: 150px;
-        max-width: 220px;
+.trafficBtn:active {
+    transform: translateY(1px);
+}
+
+.trafficMinimize {
+    background: #febc2e;
+}
+
+.trafficMaximize {
+    background: #28c840;
+}
+
+.trafficClose {
+    background: #ff5f57;
+}
+
+.trafficMaximized {
+    box-shadow: 0 0 0 2px rgba(40, 200, 64, 0.18);
+}
+
+/* ----- Responsive ----- */
+@media (max-width: 980px) {
+    .root {
+        --tb-search-w: clamp(120px, 10vw, 155px);
+    }
+    .center {
+        max-width: 50%;
+    }
+    .subText {
+        max-width: 170px;
     }
 }
 
-@media (max-width: 760px){
-    .subText{ display:none; }
-    .searchShell{
-        width: 190px;
-        min-width: 170px;
-        max-width: 190px;
+@media (max-width: 760px) {
+    .root {
+        --tb-search-w: 150px;
+    }
+    .center {
+        max-width: 46%;
+    }
+    .subText {
+        display: none;
     }
 }
 
 /* Reduce motion */
-@media (prefers-reduced-motion: reduce){
+@media (prefers-reduced-motion: reduce) {
     .iconBtn,
     .avatarBtn,
     .newBtn,
-    .searchAction,
+    .searchToggleIcon,
+    .searchPopover,
     .searchShell,
-    .trafficBtn{
+    .trafficBtn {
         transition: none;
     }
 }
